@@ -25,7 +25,8 @@ foreach ($f in $Model, (Join-Path $LlamaDir 'llama-bench.exe')) {
 
 "== llama-bench | $Backend | ngl=$ngl | $name" | Tee-Object -FilePath $log
 # pp512 ~ toc do xu ly prompt (quyet dinh TTFT), tg128 ~ toc do sinh. 3 lan lap.
-& (Join-Path $LlamaDir 'llama-bench.exe') -m $Model -p 512 -n 128 -r 3 -ngl $ngl -o md 2>&1 |
+# Bang ket qua o stdout; khong redirect stderr (PS 5.1 bien stderr thanh loi khi ErrorAction=Stop).
+& (Join-Path $LlamaDir 'llama-bench.exe') -m $Model -p 512 -n 128 -r 3 -ngl $ngl -o md |
     Tee-Object -FilePath $log -Append
 
 if (-not $Server) { "`nDa luu: $log"; return }
@@ -44,13 +45,22 @@ try {
         if ((Get-Date) -gt $deadline) { throw 'llama-server khong san sang sau 180 s' }
         Start-Sleep -Milliseconds 500
     }
-    $system = Get-Content (Join-Path $root 'tests/fixtures/system_prompt_sample.md') -Raw -Encoding UTF8
+    # ReadAllText: Get-Content -Raw (PS 5.1) gan NoteProperty, ConvertTo-Json bien thanh object
+    $system = [IO.File]::ReadAllText((Join-Path $root 'tests/fixtures/system_prompt_sample.md'), [Text.Encoding]::UTF8)
     "`n== TTFT qua llama-server (ctx=$Ctx)" | Tee-Object -FilePath $log -Append
-    $questions = 'Mori oi, giai thich giup minh closure trong JavaScript la gi?', 'Con async/await thi khac Promise o cho nao?'
-    & { foreach ($i in 1..$questions.Count) {
-        $q = $questions[$i - 1]
+    # khoi_dong: prefix khac -> khong trung cache, chi de backend GPU bien dich shader (khong tinh).
+    # lanh: xu ly toan bo system prompt. am: chi xu ly phan moi neu prompt cache hoat dong.
+    $turns = @(
+        @('khoi_dong', "[warmup]`n$system", 'Xin chao.'),
+        @('lanh', $system, 'Mori oi, giai thich giup minh closure trong JavaScript la gi?'),
+        @('am', $system, 'Con async/await thi khac Promise o cho nao?'),
+        @('am', $system, 'Vay khi nao nen dung Promise.all?'),
+        @('am', $system, 'Cam on nhe, hom nay vay thoi.')
+    )
+    & { foreach ($i in 1..$turns.Count) {
+        $label, $sys, $q = $turns[$i - 1]
         $body = @{
-            messages             = @(@{ role = 'system'; content = $system }, @{ role = 'user'; content = $q })
+            messages             = @(@{ role = 'system'; content = $sys }, @{ role = 'user'; content = $q })
             max_tokens           = 16
             temperature          = 0
             cache_prompt         = $true
@@ -61,7 +71,6 @@ try {
             -Body ([Text.Encoding]::UTF8.GetBytes($body))
         $sw.Stop()
         $t = $r.timings
-        $label = if ($i -eq 1) { 'lanh' } else { 'am' }
         if ($t) {
             "lan {0} ({1}): prompt_n={2} prompt_ms={3:N0} -> TTFT~{4:N2}s | gen {5:N1} tok/s | tong {6:N2}s" -f `
                 $i, $label, $t.prompt_n, $t.prompt_ms, ($t.prompt_ms / 1000), $t.predicted_per_second, $sw.Elapsed.TotalSeconds

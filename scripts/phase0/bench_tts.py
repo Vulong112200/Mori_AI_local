@@ -30,7 +30,8 @@ def load_korva(a):
     tts = TTS(assets_dir=a.model) if a.model else TTS()
     voice = a.voice or "khanh_vy"
     sr = getattr(tts, "sample_rate", 44100)
-    return sr, lambda text: iter([tts.synthesize(text, voice=voice, lang="vi")[0]])
+    steps = a.steps or 32  # mặc định thư viện 32; README: 8–16 nhanh hơn
+    return sr, lambda text: iter([tts.synthesize(text, voice=voice, lang="vi", total_steps=steps)[0]])
 
 
 def load_zerotts(a):
@@ -43,8 +44,8 @@ def load_zerotts(a):
 def load_vieneu(a):
     from vieneu import Vieneu
     mode = a.mode or "v3turbo"
-    tts = Vieneu(mode=mode)
-    voice = a.voice or "Hải Đăng"
+    tts = Vieneu(mode=mode, **({"precision": a.precision} if a.precision else {}))
+    voice = a.voice or ("Ái Hân" if mode == "v3nano" else "Hải Đăng")  # nano không có "Hải Đăng"
     sr = 24000 if mode == "v3nano" else 48000  # theo README; API không có thuộc tính sample rate
     return sr, lambda text: tts.infer_stream(text, voice=voice)
 
@@ -109,14 +110,18 @@ def main():
     ap.add_argument("--voice")
     ap.add_argument("--model", help="đường dẫn weights local")
     ap.add_argument("--mode", help="vieneu: v3turbo | v3nano")
+    ap.add_argument("--precision", help="vieneu v3turbo: fp32 | int8 (cần VNNI)")
+    ap.add_argument("--steps", type=int, help="korva: total_steps (mặc định 32)")
     a = ap.parse_args()
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # console Windows mặc định cp1252
+    for stream in (sys.stdout, sys.stderr):  # console Windows mặc định cp1252; log của vieneu có emoji
+        stream.reconfigure(encoding="utf-8", errors="replace")
 
     if a.engine != "dummy" and os.environ.get("HF_HUB_OFFLINE") != "1":
         print("CANH BAO: HF_HUB_OFFLINE != 1 -> engine co the tu tai weights.", file=sys.stderr)
 
     texts = [l.strip() for l in SENTENCES.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
-    out = OUT / (a.engine + (f"-{a.mode}" if a.mode else ""))
+    tag = "".join(f"-{v}" for v in (a.mode, a.precision, a.steps and f"s{a.steps}", a.voice) if v)
+    out = OUT / (a.engine + tag)
     out.mkdir(parents=True, exist_ok=True)
 
     t0 = time.perf_counter()

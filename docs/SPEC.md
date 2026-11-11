@@ -228,6 +228,14 @@ Buffer bị xóa ngay sau khi nhận dạng xong.
 
 Các engine trên mặc định tải weights từ Hugging Face ở lần chạy đầu → phải tải trước (có duyệt), rồi trỏ đường dẫn local và chạy với `HF_HUB_OFFLINE=1`.
 
+**Bắt buộc trên Windows (đã kiểm chứng Phase 0):** đặt `HF_HUB_DISABLE_SYMLINKS=1` khi tải. Mặc định cache Hugging Face lưu file dạng symlink trỏ vào `blobs/`; ONNX Runtime ≥ 1.31 từ chối file external data (`*.data`) nằm khác thư mục với `.onnx` ("External data path escapes model directory") → ZeroTTS và VieNeu không nạp được. Biến môi trường chuẩn của worker TTS:
+
+```text
+HF_HOME=E:\Mori Data\models\tts\hf
+HF_HUB_DISABLE_SYMLINKS=1
+HF_HUB_OFFLINE=1          (khi chạy, sau khi đã tải)
+```
+
 ### 7.2. Tiêu chí đánh giá
 
 | Tiêu chí | Đo bằng |
@@ -241,7 +249,7 @@ Các engine trên mặc định tải weights từ Hugging Face ở lần chạy
 
 ### 7.3. Streaming
 
-1. LLM sinh token; Conversation Manager cắt theo câu (`.`, `?`, `!`, xuống dòng; câu quá dài cắt ở dấu phẩy).
+1. LLM sinh token; Conversation Manager cắt theo câu (`.`, `?`, `!`, xuống dòng; câu quá dài cắt ở dấu phẩy). Trước khi gửi TTS: bỏ emoji và ký hiệu markdown (`**`, `#`, `-` đầu dòng, khối code) — Phase 0 cho thấy model hay chèn emoji.
 2. Câu đầu tiên gửi TTS ngay.
 3. Rust phát audio chunk theo thứ tự, có số thứ tự để chống phát lặp hoặc thiếu.
 4. Trong lúc phát, Rust phát sự kiện RMS ~30 Hz cho avatar.

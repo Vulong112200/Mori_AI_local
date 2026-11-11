@@ -19,6 +19,10 @@
 | `E:\Mori Data` | Chưa tạo |
 | Toolchain | Git, Node, Cargo/Rustc, Python 3.14 có; **uv, CMake thiếu** |
 
+### Lần đo 2 (2026-11-11 23:00)
+
+RAM trống 7.8 GB, commit trống 3.0 GB, giới hạn commit đã tự nới lên 34.4 GB (pagefile Windows quản lý). Không có tiến trình nào chiếm bất thường: 24.7 GB private là tổng của nhiều tiến trình nhỏ (Chrome, Edge, VS Code, Claude…). Kết luận: không cần đổi pagefile; llama-server (4–5 GB) chạy được. Khi benchmark nên đóng bớt trình duyệt để số đo ít nhiễu.
+
 ### Nhận xét lần đo 1
 
 - Spec v0 ghi pagefile "cố định 2 GB" là **sai**: pagefile do Windows quản lý, hiện chỉ cấp 2 GB và sẽ tự nới ra khi cần.
@@ -36,8 +40,9 @@
 
 | Backend | Nhận GPU? | Lỗi | Ghi chú |
 |---|---|---|---|
-| Vulkan | _chưa thử_ | | `llama-cli --list-devices` |
-| SYCL | _chưa thử_ | | |
+| Vulkan (b12284) | ✅ `Vulkan0: Intel Arc 140T (18307 MiB, 17538 MiB free)` | Không | pp512 ~888 t/s, tg128 ~23 t/s với Qwen3-4B Q4_K_M, ổn định. Lượt đầu cần biên dịch shader (~4 s) |
+| SYCL | Không thử | | Không cần: Vulkan đã đạt mục tiêu TTFT. Thử lại chỉ khi Vulkan gặp lỗi |
+| OpenVINO | Chưa thử | | llama.cpp đã có bản dựng sẵn `win-openvino` (b12284) — hướng dự phòng / NPU sau MVP |
 
 ## 4. Nhiệt & ổn định
 

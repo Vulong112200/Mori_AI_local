@@ -4,7 +4,7 @@
 > Ký hiệu: `[ ]` chưa làm · `[~]` đang làm · `[x]` xong · `[!]` bị chặn (ghi lý do) · 🔐 cần người dùng duyệt (tải/cài).
 
 **Phase hiện tại:** 0
-**Cập nhật:** 2026-11-11
+**Cập nhật:** 2026-11-12
 
 ---
 
@@ -19,39 +19,44 @@
 
 ### 0.2. Môi trường
 - [x] Chạy `scripts/phase0/hw_inventory.ps1` → điền [HARDWARE_REPORT.md](HARDWARE_REPORT.md) (lần 1)
-- [ ] Đo lại RAM/commit trống ở trạng thái làm việc thường ngày (lần 1 chỉ còn 4.2 GB commit trống); quyết định có cần đặt pagefile tối thiểu không
-- [ ] 🔐 Cài `uv` (quản lý Python 3.12 cho TTS)
-- [ ] 🔐 Tạo `E:\Mori Data\` theo cấu trúc SPEC §16
+- [x] Đo lại RAM/commit trống (lần 2: 7.8 GB RAM / 3.0 GB commit trống, pagefile tự nới) → không cần đổi pagefile
+- [x] 🔐 Cài `uv` (0.13.7, winget)
+- [x] 🔐 Tạo `E:\Mori Data\` theo cấu trúc SPEC §16
 
 ### 0.3. LLM
-- [ ] 🔐 Tải llama.cpp bản Windows: CPU + Vulkan (cùng build) → `E:\Mori Data\runtime\llama.cpp\<build>\`
-- [ ] 🔐 Tải Qwen3-4B Q4_K_M (baseline), ghi sha256
-- [ ] `/bench llm` CPU
-- [ ] `/bench llm` Vulkan
-- [ ] 🔐 SYCL build (nếu Vulkan lỗi hoặc chậm) → `/bench llm` SYCL
-- [ ] 🔐 Tải Qwen3-4B-Instruct-2507 và Qwen3.5-4B → bench backend tốt nhất
-- [ ] Chạy bộ [llm_prompts.md](../tests/fixtures/llm_prompts.md) trên từng model, chấm điểm tiếng Việt
-- [ ] Đo TTFT cache lạnh/ấm qua `llama-server`
-- [ ] `/adr` chọn model + backend LLM
+- [x] 🔐 Tải llama.cpp bản Windows: CPU + Vulkan b12284 (sha256 OK) → `E:\Mori Data\runtime\llama.cpp\b12284-{cpu,vulkan}\`
+- [x] 🔐 Tải Qwen3-4B Q4_K_M (baseline), ghi sha256
+- [x] `/bench llm` CPU
+- [x] `/bench llm` Vulkan — nhanh hơn CPU 7× (pp) / 1.5–3× (tg), ổn định
+- [x] ~~🔐 SYCL build~~ — bỏ qua: Vulkan đã đạt mục tiêu
+- [x] 🔐 Tải Qwen3-4B-Instruct-2507 và Qwen3.5-4B → bench Vulkan
+- [x] Chạy bộ [llm_prompts.md](../tests/fixtures/llm_prompts.md) (AI-01..06) trên 3 model — `scripts/phase0/run_llm_prompts.py`; Claude chấm sơ bộ
+- [x] Đo TTFT cache lạnh/ấm qua `llama-server` (Qwen3-4B Vulkan: 0.60 s / 0.23 s)
+- [ ] **Người dùng** đọc `scripts/phase0/out/llm_answers_*.md` và chấm điểm tiếng Việt
+- [ ] 🔐 (Đề xuất) Thử một model ~8B trên Vulkan — cả 3 model 4B còn sai kiến thức
+- [~] `/adr` chọn model + backend LLM — [ADR-0004](adr/0004-chon-llm.md) **Đề xuất**, chờ chấp nhận
 
 ### 0.4. STT
-- [ ] Thu âm bộ test (tối thiểu 20 câu để sàng lọc, đủ 100 câu trước gate Phase 2) theo [stt_manifest.csv](../tests/fixtures/stt_manifest.csv)
-- [ ] 🔐 Tải whisper small + large-v3-turbo (ggml)
-- [ ] `/bench stt` (dùng tạm `E:\Memora Data\runtime\whisper.cpp\b5454\whisper-cli.exe`, chỉ đọc)
+- [ ] (Hoãn, không chặn gate Phase 0) **Người dùng** thu âm giọng thật theo [stt_manifest.csv](../tests/fixtures/stt_manifest.csv): ~20 câu trước khi chốt ADR STT cuối cùng, đủ 100 câu trước gate Phase 2
+- [x] 🔐 Tải whisper small + large-v3-turbo q5_0 (ggml, sha256 OK)
+- [x] `/bench stt` sơ bộ trên **giọng tổng hợp** (18 câu VieNeu, 16 kHz) với whisper-cli b5454 (CPU) — turbo WER 8.4 % nhưng 10.3 s; small 2.3 s / WER 17 %
+- [ ] 🔐 Build whisper.cpp với Vulkan (cần CMake + Vulkan SDK + MSVC build tools; không có bản dựng sẵn) → bench turbo trên GPU
+- [ ] `/bench stt` trên giọng thật
 - [ ] 🔐 Thử convert PhoWhisper → ggml, bench nếu được
 - [ ] `/adr` chọn model STT
 
 ### 0.5. TTS
-- [ ] Kiểm tra license VieNeu-TTS v3
-- [ ] 🔐 uv venv Python 3.12 + `pip install korvatts zerotts vieneu`; tải weights trước, ghi sha256
-- [ ] `/bench tts` cho cả 3 engine với [tts_sentences.txt](../tests/fixtures/tts_sentences.txt)
-- [ ] Nghe và chấm điểm (tự nhiên, phát âm, nhịp, vi-en)
-- [ ] Kiểm tra chạy offline (`HF_HUB_OFFLINE=1`, ngắt mạng)
-- [ ] `/adr` chọn TTS
+- [x] Kiểm tra license VieNeu-TTS v3 — Apache-2.0 (cả Turbo và Nano)
+- [x] 🔐 uv venv Python 3.12 (`E:\Mori Data\runtime\python\tts-venv`) + korvatts 0.1.3, zerotts 0.1.5, vieneu 3.8.4; weights tải với `HF_HUB_DISABLE_SYMLINKS=1`
+- [x] `/bench tts` cho cả 3 engine (+ VieNeu Nano, Turbo int8, Korva 8 bước)
+- [x] **Người dùng** nghe: thích giọng **ZeroTTS**; VieNeu Turbo int8 không méo
+- [ ] Tăng tốc ZeroTTS (int8, threads) → RTF < 1?
+- [~] Kiểm tra chạy offline — đã chạy với `HF_HUB_OFFLINE=1`; còn thử khi **ngắt mạng thật**
+- [~] `/adr` chọn TTS — [ADR-0005](adr/0005-chon-tts.md) **Đề xuất**, chờ nghe
 
 ### 0.6. License
 - [ ] Rà license Live2D Cubism SDK for Web + model mẫu → ghi ADR
-- [ ] Ghi license từng model đã chọn vào MODEL_EVALUATION.md
+- [x] Ghi license từng model vào MODEL_EVALUATION.md (Qwen Apache-2.0, Whisper MIT, VieNeu v3 Apache-2.0, ZeroTTS MIT, Korva Apache-2.0)
 
 ### Gate Phase 0
 - [ ] Có ít nhất một bộ LLM + STT + TTS chạy **offline** trên máy đích
