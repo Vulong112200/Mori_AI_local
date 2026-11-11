@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(python -m pip install *)",
+      "Bash(uv pip install *)",
+      "Bash(uv add *)",
+      "Bash(uv python install *)",
+      "Bash(winget *)",
+      "Bash(huggingface-cli *)",
+      "Bash(hf *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(npx *)",
+      "Bash(cargo install *)",
+      "Bash(git push *)",
+      "PowerShell(Invoke-WebRequest *)",
+      "PowerShell(Invoke-RestMethod *)",
+      "PowerShell(Start-BitsTransfer *)",
+      "PowerShell(curl *)",
+      "PowerShell(wget *)",
+      "PowerShell(pip install *)",
+      "PowerShell(python -m pip install *)",
+      "PowerShell(uv pip install *)",
+      "PowerShell(uv add *)",
+      "PowerShell(uv python install *)",
+      "PowerShell(winget *)",
+      "PowerShell(huggingface-cli *)",
+      "PowerShell(hf *)",
+      "PowerShell(npm install *)",
+      "PowerShell(npx *)",
+      "PowerShell(cargo install *)",
+      "PowerShell(git push *)"
+    ],
+    "deny": [
+      "Edit(//e/Memora Data/**)"
+    ]
+  }
+}

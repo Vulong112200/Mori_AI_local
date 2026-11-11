@@ -1,0 +1,6 @@
+file,category,ref
+# Hướng dẫn: thu âm WAV 16 kHz mono 16-bit, đặt vào tests/fixtures/audio/ (thư mục này không commit). Xóa dòng ví dụ và dòng này khi điền.
+# category: doi_thuong | mien_nam | thuat_ngu | so_dai | nhieu_nhanh (mỗi loại 20 câu cho đủ 100)
+d01.wav,doi_thuong,Mori ơi hôm nay mình hơi mệt
+t01.wav,thuat_ngu,bạn mở file package dot json rồi chạy npm install giúp mình
+s01.wav,so_dai,cuộc họp dời sang hai giờ chiều thứ sáu ngày mười hai tháng mười một

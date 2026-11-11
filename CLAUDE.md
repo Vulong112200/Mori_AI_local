@@ -1,0 +1,58 @@
+# Mori — hướng dẫn cho Claude Code
+
+Mori là trợ lý AI desktop chạy **100% local** trên Windows 11: hội thoại tiếng Việt bằng giọng nói/văn bản, memory do người dùng duyệt, avatar Live2D. Claude Code là trợ lý **phát triển**, không phải AI runtime của Mori.
+
+Viết tài liệu và trao đổi với người dùng bằng **tiếng Việt**; giữ thuật ngữ kỹ thuật, tên code, lệnh bằng tiếng Anh.
+
+## Đọc trước
+
+| File | Khi nào |
+|---|---|
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Luôn — phase hiện tại, task kế tiếp |
+| [docs/SPEC.md](docs/SPEC.md) | Trước khi thiết kế/viết code — nguồn sự thật |
+| [docs/adr/](docs/adr/) | Trước khi đổi quyết định kỹ thuật |
+| [docs/MODEL_EVALUATION.md](docs/MODEL_EVALUATION.md) | Khi chọn/đo model |
+| [docs/SPEC_REVIEW.md](docs/SPEC_REVIEW.md) | Muốn biết vì sao spec khác bản v0 |
+
+`docs/archive/` là bản v0 chưa kiểm chứng — **không dùng làm căn cứ**.
+
+## Luật bất biến
+
+1. **Local-only.** Không thêm code gọi cloud API, telemetry, crash report ra ngoài, hay cloud fallback. Service bind `127.0.0.1`.
+2. **Không tải model, không cài phần mềm/gói** khi người dùng chưa duyệt trong lượt hiện tại. Task 🔐 trong ROADMAP luôn phải hỏi.
+3. **Không ghi vào `E:\Memora Data\`** (dự án khác). Được đọc/chạy `whisper-cli.exe` ở đó để benchmark.
+4. **Không commit** model weights, audio, DB, Cubism Core (đã có trong `.gitignore`). Không commit/push khi người dùng chưa yêu cầu.
+5. **Đi theo phase.** Không viết code của phase sau khi phase hiện tại chưa qua gate. Phase 0 không viết code app.
+6. **Đo, không đoán.** Không ghi số hiệu năng chưa đo trên máy đích vào bảng kết quả.
+7. **Không hạ chuẩn để qua test**: không skip test, không tắt lint/clippy, không sửa ngưỡng gate khi chưa có ADR.
+
+## Quy trình
+
+- Bắt đầu phiên: `/status`.
+- Làm task: chọn task chưa tick đầu tiên của phase hiện tại trong ROADMAP (trừ khi người dùng chỉ định).
+- Xong task: tick `[x]` trong ROADMAP, cập nhật dòng **Cập nhật**.
+- Quyết định kỹ thuật (chọn model, đổi kiến trúc, đổi ngưỡng): `/adr <tiêu đề>` → cập nhật SPEC.md mục liên quan.
+- Đo model: `/bench <llm|stt|tts>`.
+- Kết thúc phase: `/gate <n>`.
+- Thay đổi chạm quyền riêng tư/bảo mật (mạng, micro, file, memory, process): chạy agent `agent-skills:security-auditor` trước khi báo xong.
+
+## Môi trường
+
+- Windows 11, shell chính PowerShell 5.1; Bash (Git Bash) có sẵn.
+- Có: Git, Node 24, Rust 1.99, Python 3.14. Chưa có: uv, CMake.
+- TTS Python phải chạy trong **uv venv Python 3.12** ở `E:\Mori Data\runtime\python\`, với `HF_HUB_OFFLINE=1` khi chạy thật.
+- Data root: `E:\Mori Data\` (SPEC §16). Output thô của Phase 0: `scripts/phase0/out/` (gitignored).
+
+## Lệnh
+
+Phase 0:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/phase0/hw_inventory.ps1
+powershell -ExecutionPolicy Bypass -File scripts/phase0/bench_llm.ps1 -LlamaDir <dir> -Model <gguf> -Backend cpu|vulkan|sycl
+powershell -ExecutionPolicy Bypass -File scripts/phase0/bench_stt.ps1 -WhisperCli <exe> -Model <ggml>
+python scripts/phase0/wer.py                 # self-check
+python scripts/phase0/wer.py <ref> <hyp>     # WER/CER một cặp câu
+<venv>\python scripts/phase0/bench_tts.py <engine>
+```
+
+Từ Phase 1 (khi đã có code): `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test`, `npx tsc --noEmit` phải sạch trước khi báo xong.

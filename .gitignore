@@ -1,0 +1,25 @@
+# Model weights & binaries — never commit (xem CLAUDE.md)
+*.gguf
+*.onnx
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ggml
+# Audio, DB, runtime data
+*.wav
+*.mp3
+*.flac
+*.db
+*.db-*
+*.sqlite
+# Live2D Cubism Core (proprietary)
+**/live2dcubismcore*
+# Toolchains
+.venv/
+node_modules/
+target/
+dist/
+__pycache__/
+# Phase 0 raw outputs
+scripts/phase0/out/

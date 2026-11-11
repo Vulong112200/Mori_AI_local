@@ -1,0 +1,25 @@
+# Bộ câu đánh giá TTS. Dòng bắt đầu bằng # bị bỏ qua. Mỗi dòng một mẫu.
+# --- Đời thường ---
+Mình đây, bạn cần mình giúp gì nè?
+Hôm nay trời Sài Gòn nắng đẹp quá, bạn có định ra ngoài không?
+Nghe bạn nói vậy mình thấy hơi lo, bạn nhớ nghỉ ngơi một chút nha.
+Ừ, để mình xem lại rồi trả lời bạn ngay.
+# --- Thanh điệu khó ---
+Bà ba bán bánh bèo bên bờ biển, bé bỏng bước bên bà.
+Nồi đồng nấu ốc, nồi đất nấu ếch.
+# --- Lẫn tiếng Anh / thuật ngữ ---
+Bạn chạy lệnh npm install rồi mở file package.json kiểm tra lại dependencies nhé.
+Lỗi này là do React re-render liên tục vì useEffect thiếu dependency array.
+Mình đề xuất dùng SQLite với FTS5 thay vì PostgreSQL cho bản MVP.
+Pull request này cần review lại phần API trước khi merge vào branch main.
+# --- Số, ngày, đơn vị ---
+Cuộc họp được dời sang 14 giờ 30 phút, thứ Sáu ngày 31/12/2026.
+Laptop có 32 GB RAM, CPU 16 nhân, tốc độ sinh khoảng 25,5 token mỗi giây.
+Giá tổng cộng là 1.250.000 đồng, giảm 15% còn 1.062.500 đồng.
+# --- Câu dài ---
+Nếu bạn muốn Mori chạy hoàn toàn offline thì trước tiên cần tải model về máy, kiểm tra checksum, sau đó ngắt mạng và thử hội thoại vài lượt để chắc chắn rằng không có thành phần nào còn gọi ra Internet.
+Thật ra vấn đề không nằm ở thuật toán, mà ở chỗ dữ liệu đầu vào chưa được chuẩn hóa, nên mỗi lần chạy lại cho ra một kết quả khác nhau, và điều đó làm bạn tưởng là code bị lỗi.
+# --- Cảm xúc / nhịp ---
+Ồ, hay quá! Vậy là cuối cùng cũng chạy được rồi!
+Hmm, câu này mình không chắc lắm, bạn cho mình thêm thông tin được không?
+Không sao đâu, ai cũng có lúc mệt mà. Mai mình làm tiếp cũng được.
