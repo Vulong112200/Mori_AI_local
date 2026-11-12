@@ -36,7 +36,8 @@ def load_korva(a):
 
 def load_zerotts(a):
     from zerotts import ZeroTTS
-    tts = ZeroTTS.from_pretrained(a.model or "zeroweight-ai/ZeroTTS")
+    kw = {"intra_op_num_threads": a.threads} if a.threads else {}  # mặc định thư viện: 4
+    tts = ZeroTTS.from_pretrained(a.model or "zeroweight-ai/ZeroTTS", **kw)
     voice = a.voice or "maichi"
     return tts.sample_rate, lambda text: tts.synthesize_stream(text, voice=voice)
 
@@ -44,7 +45,8 @@ def load_zerotts(a):
 def load_vieneu(a):
     from vieneu import Vieneu
     mode = a.mode or "v3turbo"
-    tts = Vieneu(mode=mode, **({"precision": a.precision} if a.precision else {}))
+    kw = {k: v for k, v in (("precision", a.precision), ("threads", a.threads)) if v}
+    tts = Vieneu(mode=mode, **kw)
     voice = a.voice or ("Ái Hân" if mode == "v3nano" else "Hải Đăng")  # nano không có "Hải Đăng"
     sr = 24000 if mode == "v3nano" else 48000  # theo README; API không có thuộc tính sample rate
     return sr, lambda text: tts.infer_stream(text, voice=voice)
@@ -112,6 +114,7 @@ def main():
     ap.add_argument("--mode", help="vieneu: v3turbo | v3nano")
     ap.add_argument("--precision", help="vieneu v3turbo: fp32 | int8 (cần VNNI)")
     ap.add_argument("--steps", type=int, help="korva: total_steps (mặc định 32)")
+    ap.add_argument("--threads", type=int, help="zerotts/vieneu: số luồng ONNX Runtime")
     a = ap.parse_args()
     for stream in (sys.stdout, sys.stderr):  # console Windows mặc định cp1252; log của vieneu có emoji
         stream.reconfigure(encoding="utf-8", errors="replace")
@@ -120,7 +123,7 @@ def main():
         print("CANH BAO: HF_HUB_OFFLINE != 1 -> engine co the tu tai weights.", file=sys.stderr)
 
     texts = [l.strip() for l in SENTENCES.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
-    tag = "".join(f"-{v}" for v in (a.mode, a.precision, a.steps and f"s{a.steps}", a.voice) if v)
+    tag = "".join(f"-{v}" for v in (a.mode, a.precision, a.steps and f"s{a.steps}", a.threads and f"t{a.threads}", a.voice) if v)
     out = OUT / (a.engine + tag)
     out.mkdir(parents=True, exist_ok=True)
 

@@ -50,7 +50,7 @@
 - [x] 🔐 uv venv Python 3.12 (`E:\Mori Data\runtime\python\tts-venv`) + korvatts 0.1.3, zerotts 0.1.5, vieneu 3.8.4; weights tải với `HF_HUB_DISABLE_SYMLINKS=1`
 - [x] `/bench tts` cho cả 3 engine (+ VieNeu Nano, Turbo int8, Korva 8 bước)
 - [x] **Người dùng** nghe: thích giọng **ZeroTTS**; VieNeu Turbo int8 không méo
-- [ ] Tăng tốc ZeroTTS (int8, threads) → RTF < 1?
+- [~] Tăng tốc ZeroTTS → RTF < 1: threads xong (6 luồng: RTF 1.05, first audio 0.32 s; 8 luồng tệ hơn). **Kế tiếp:** int8 (`quantize_dynamic`) → nếu chưa đủ, 🔐 thử `onnxruntime-directml` (GPU) trong venv riêng
 - [~] Kiểm tra chạy offline — đã chạy với `HF_HUB_OFFLINE=1`; còn thử khi **ngắt mạng thật**
 - [~] `/adr` chọn TTS — [ADR-0005](adr/0005-chon-tts.md) **Đề xuất**, chờ nghe
 

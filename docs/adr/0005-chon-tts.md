@@ -10,6 +10,7 @@ Phase 0 đo 3 engine trên CPU, chạy offline, 18 câu ([MODEL_EVALUATION.md](.
 |---|---|---|---|
 | ZeroTTS 0.1.5 fp32 | 0.52 / 0.66 s | 1.87 ❌ | 1.37 GB |
 | KorvaTTS 0.1.3 (8–32 bước) | 9.4–30.7 s ❌ | 1.87–6.09 ❌ | 0.69 GB |
+| ZeroTTS 0.1.5 fp32, 6 luồng | 0.32 / 0.50 s | 1.05 ⚠️ | 1.37 GB |
 | VieNeu v3 Turbo fp32 | 0.58 / 0.75 s | 0.89 | 1.35 GB |
 | **VieNeu v3 Turbo int8** | **0.39 / 0.50 s** | **0.74** | **0.85 GB** |
 | VieNeu v3 Nano | 2.12 / 3.14 s | 0.42 | 0.45 GB |

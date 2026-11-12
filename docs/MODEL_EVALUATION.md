@@ -64,6 +64,8 @@ Phân tích lỗi (turbo, mặc định): phần lớn là khác **định dạn
 | Ngày | Engine | Giọng | First audio TB / P95 (s) | RTF | RAM | Tự nhiên | Phát âm | Nhịp | vi-en | Ghi chú |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-11 | ZeroTTS 0.1.5 (fp32) | maichi | **0.52 / 0.66** | 1.87 ❌ | 1.37 GB | **Người dùng thích nhất** | | | | Streaming. RTF > 1 → phát sẽ bị ngắt quãng. Công bố RTF 0.5 (chưa đạt với fp32; có tool int8 trong repo GitHub, chưa thử) |
+| 2026-11-12 | ZeroTTS 0.1.5 (fp32, **6 luồng**) | maichi | **0.32 / 0.50** | **1.05** ⚠️ | 1.37 GB | Người dùng thích | | | | Mặc định thư viện 4 luồng. Gần real-time nhưng vẫn > 1 |
+| 2026-11-12 | ZeroTTS 0.1.5 (fp32, 8 luồng) | maichi | 0.58 / 0.73 | 1.64 ❌ | 1.39 GB | | | | | Chậm hơn 6 luồng (nhân E/LP-E?) |
 | 2026-11-11 | KorvaTTS 0.1.3 (32 bước) | khanh_vy | 30.7 / 46.8 ❌ | 6.09 ❌ | 0.69 GB | | | | | Không streaming |
 | 2026-11-12 | KorvaTTS 0.1.3 (8 bước) | khanh_vy | 9.4 / 12.4 ❌ | 1.87 ❌ | 0.69 GB | | | | | Vẫn không dùng được → **loại** |
 | 2026-11-11 | VieNeu v3 Turbo (fp32) | Hải Đăng | **0.58 / 0.75** | **0.89** | 1.35 GB | | | | | Streaming, 48 kHz. Đạt cả hai chỉ số nhưng RTF sát 1 |
@@ -75,6 +77,6 @@ Các cột Tự nhiên / Phát âm / Nhịp / vi-en: **người dùng nghe và c
 ## 5. Kết luận (sơ bộ, 2026-11-12)
 
 - **LLM:** đề xuất **Qwen3-4B-Instruct-2507 trên Vulkan** — nhanh nhất, tiếng Việt tốt nhất trong 3 model 4B. Cả 3 đều còn sai kiến thức → cân nhắc thử model ~8B (Vulkan còn dư tốc độ: tiếng nói chỉ cần ~6 tok/s). Xem [ADR-0004](adr/0004-chon-llm.md).
-- **TTS:** người dùng **thích giọng ZeroTTS** hơn; VieNeu v3 Turbo int8 không méo và là phương án nhanh. Đang thử tăng tốc ZeroTTS (int8/threads) để RTF < 1. Xem [ADR-0005](adr/0005-chon-tts.md).
+- **TTS:** người dùng **thích giọng ZeroTTS** hơn; VieNeu v3 Turbo int8 không méo và là phương án nhanh. ZeroTTS 6 luồng đạt RTF 1.05 (gần đủ); bước tiếp: int8 (`onnxruntime.quantization`) hoặc DirectML trên Arc 140T. Xem [ADR-0005](adr/0005-chon-tts.md).
 - **STT:** **chưa chốt**. Trên CPU không có cấu hình nào vừa < 2 s vừa chính xác. Bước tiếp: build whisper.cpp với Vulkan (cần CMake + Vulkan SDK) và thu âm giọng thật.
 - **Ước tính "thả PTT → nghe tiếng đầu tiên"** (cấu hình đề xuất, STT tạm dùng small `-ac 768`): STT 1.2–1.8 s + LLM TTFT ấm 0.25 s + câu đầu tiên (~15 token ở 23 tok/s ≈ 0.65 s) + TTS first audio 0.4–0.5 s ≈ **2.5–3.2 s** (< 4 s). Với turbo trên CPU: ≈ 5.5–6.5 s ❌.
