@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Quyền tối thiểu: chỉ core (gọi lệnh + nhận sự kiện). Không shell, không fs, không http.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

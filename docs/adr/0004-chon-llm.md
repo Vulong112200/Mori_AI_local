@@ -1,6 +1,6 @@
 # ADR-0004: LLM — Qwen3-4B-Instruct-2507 Q4_K_M trên llama.cpp Vulkan
 
-**Trạng thái:** Chấp nhận (2026-11-12) — có thể bị thay thế nếu model ~8B tốt hơn rõ (đang thử Qwen3-8B)
+**Trạng thái:** Thay thế bởi [ADR-0008](0008-llm-8b-mac-dinh.md) (2026-11-12)
 **Ngày:** 2026-11-12
 
 ## Bối cảnh

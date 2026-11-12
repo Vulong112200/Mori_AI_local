@@ -129,7 +129,7 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 | Backend | Rust | Chốt |
 | Avatar | Live2D Cubism SDK for Web (WebGL) | Chốt, rà license [P0] |
 | LLM runtime | llama.cpp (`llama-server`) | Chốt |
-| Tăng tốc LLM | Vulkan (Arc 140T); CPU fallback | Chốt — ADR-0004 |
+| Tăng tốc LLM | Vulkan (Arc 140T); CPU fallback | Chốt — ADR-0008 |
 | STT | whisper.cpp (`whisper-server`) | Chốt runtime; model [P0] |
 | TTS | ZeroTTS int8 (dự phòng: VieNeu v3 Turbo) | Chốt — ADR-0005 |
 | Python (nếu cần) | 3.12 qua uv, venv riêng (thư viện TTS hỗ trợ 3.10–3.13, máy đang có 3.14) | Chốt |
@@ -144,7 +144,7 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 
 ### 5.1. Ứng viên
 
-**Đã chọn ([ADR-0004](adr/0004-chon-llm.md)): Qwen3-4B-Instruct-2507 Q4_K_M trên Vulkan** — TTFT 0.55 s lạnh / 0.25 s ấm, 23.7 tok/s. Đang thử thêm Qwen3-8B.
+**Đã chọn ([ADR-0008](adr/0008-llm-8b-mac-dinh.md)): Qwen3-8B Q4_K_M trên Vulkan** (TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s). **Chế độ nhanh:** Qwen3-4B-Instruct-2507 Q4_K_M (0.55 / 0.25 s, 23.7 tok/s).
 
 | Model | Vai trò | Ghi chú |
 |---|---|---|
@@ -199,7 +199,7 @@ Không chèn timestamp hay dữ liệu thay đổi vào phần 1.
 
 Runtime: `whisper-server` (giữ model trong RAM khi đang trong phiên hội thoại, giải phóng khi nghỉ lâu).
 
-**Đề xuất ([ADR-0007](adr/0007-chon-stt.md)): large-v3-turbo q5_0 trên whisper.cpp v1.9.5 build Vulkan** — WER 7.8 %, 1.53 s TB (giọng tổng hợp). Bản dựng sẵn của whisper.cpp không có Vulkan → phải build:
+**Đã chọn ([ADR-0007](adr/0007-chon-stt.md)): large-v3-turbo q5_0 trên whisper.cpp v1.9.5 build Vulkan** — WER 7.8 %, 1.53 s TB (giọng tổng hợp). Bản dựng sẵn của whisper.cpp không có Vulkan → phải build:
 
 ```text
 cmake -S src-v1.9.5 -B build-vulkan -G "Visual Studio 17 2022" -A x64 -DGGML_VULKAN=ON -DWHISPER_BUILD_TESTS=OFF
@@ -433,7 +433,7 @@ Mỗi lượt có một `turn_id`. Kết quả mang `turn_id` cũ bị bỏ qua 
 
 | Worker | Giao thức | Ghi chú |
 |---|---|---|
-| `llama-server.exe` | HTTP OpenAI-compatible + SSE | `--host 127.0.0.1 --port <ngẫu nhiên>` |
+| `llama-server.exe` | HTTP OpenAI-compatible + SSE | `--host 127.0.0.1 --port <ngẫu nhiên> --no-webui --no-slots --offline`, key qua env `LLAMA_API_KEY`, xóa env `LLAMA_*`, Job Object ([ADR-0009](adr/0009-bao-mat-llama-server.md)) |
 | `whisper-server.exe` | HTTP | Loopback |
 | TTS worker | JSON Lines stdio | Python 3.12 (uv venv) hoặc runtime GGUF nếu đủ tốt |
 
@@ -523,7 +523,7 @@ Pagefile do Windows quản lý, hiện cấp 2 GB → giới hạn commit ~33 GB
 
 | Thành phần | Chạy trên |
 |---|---|
-| LLM | GPU (Vulkan) — ADR-0004; CPU fallback |
+| LLM | GPU (Vulkan) — ADR-0008; CPU fallback |
 | STT | GPU (Vulkan) — ADR-0007 |
 | TTS | CPU |
 | Avatar | WebGL |

@@ -3,14 +3,22 @@
 > Nguồn sự thật duy nhất cho tiến độ. Tick `[x]` khi xong. Cập nhật dòng **Trạng thái** của phase. Gate chỉ được tick qua `/gate <n>`.
 > Ký hiệu: `[ ]` chưa làm · `[~]` đang làm · `[x]` xong · `[!]` bị chặn (ghi lý do) · 🔐 cần người dùng duyệt (tải/cài).
 
-**Phase hiện tại:** 0
+**Phase hiện tại:** 1
 **Cập nhật:** 2026-11-12
+
+## Bàn giao (đọc trước khi làm tiếp)
+
+- **Đã xong:** Phase 0 (đo & chọn toàn bộ model, gate đạt). Phase 1 (app chat văn bản) **code xong**, đã qua kiểm tra tự động + kiểm chứng bảo mật trên máy.
+- **Đang chờ:** người dùng thử app để tick 2 ô còn lại của gate Phase 1 (chat khi ngắt mạng; AI-01..05, AI-07 trong app). Sau đó chạy `/gate 1`.
+- **Việc kế tiếp sau gate 1:** Phase 2 (giọng nói vào). Cần trước: người dùng thu ≥ 20 câu giọng thật (`tests/fixtures/stt_manifest.csv`).
+- **Kiến trúc thực tế:** [ARCHITECTURE.md](ARCHITECTURE.md). Quyết định: ADR [0005](adr/0005-chon-tts.md) TTS, [0006](adr/0006-license-live2d.md) Live2D, [0007](adr/0007-chon-stt.md) STT, [0008](adr/0008-llm-8b-mac-dinh.md) LLM, [0009](adr/0009-bao-mat-llama-server.md) bảo mật.
+- **Chạy app:** `npm run tauri dev` (xem ARCHITECTURE §8).
 
 ---
 
 ## Phase 0 — Khảo sát & khả thi
 
-**Trạng thái:** Đang làm
+**Trạng thái:** Hoàn thành (2026-11-12)
 
 ### 0.1. Khung dự án
 - [x] Rà soát spec v0 → [SPEC_REVIEW.md](SPEC_REVIEW.md), [SPEC.md](SPEC.md)
@@ -34,7 +42,7 @@
 - [x] Đo TTFT cache lạnh/ấm qua `llama-server` (Qwen3-4B Vulkan: 0.60 s / 0.23 s)
 - [ ] **Người dùng** đọc `scripts/phase0/out/llm_answers_*.md` và chấm điểm tiếng Việt
 - [x] 🔐 Thử Qwen3-8B Q4_K_M (Qwen chính thức, 4.68 GB, sha256 OK) trên Vulkan — TTFT 1.16 / 0.40 s, 11.8 tok/s, chất lượng 4* (tốt hơn 4B)
-- [ ] **Người dùng** chat thử Qwen3-8B vs Qwen3-4B-Instruct-2507 → quyết định có thay ADR-0004 không
+- [x] Người dùng chọn: **Qwen3-8B mặc định, 4B chế độ nhanh** → [ADR-0008](adr/0008-llm-8b-mac-dinh.md) (thay ADR-0004)
 - [x] `/adr` chọn model + backend LLM — [ADR-0004](adr/0004-chon-llm.md) **Chấp nhận**
 
 ### 0.4. STT
@@ -44,7 +52,7 @@
 - [x] 🔐 Build whisper.cpp v1.9.5 với Vulkan (CMake 4.4.4, Vulkan SDK 1.4.363, MSVC Build Tools 2022) → turbo trên GPU: **WER 7.8 %, 1.53 / 1.77 s**
 - [ ] `/bench stt` trên giọng thật
 - [ ] 🔐 Thử convert PhoWhisper → ggml, bench nếu được
-- [~] `/adr` chọn model STT — [ADR-0007](adr/0007-chon-stt.md) **Đề xuất**: turbo q5_0 + Vulkan
+- [x] `/adr` chọn model STT — [ADR-0007](adr/0007-chon-stt.md) **Chấp nhận**: turbo q5_0 + Vulkan
 
 ### 0.5. TTS
 - [x] Kiểm tra license VieNeu-TTS v3 — Apache-2.0 (cả Turbo và Nano)
@@ -53,7 +61,7 @@
 - [x] **Người dùng** nghe: thích giọng **ZeroTTS**; VieNeu Turbo int8 không méo
 - [x] Tăng tốc ZeroTTS → RTF < 1: **int8, 4 luồng → first audio 0.06 s, RTF 0.31** (`scripts/phase0/quantize_zerotts_int8.py`; cài thêm gói `onnx` vào venv)
 - [x] **Người dùng** nghe ZeroTTS int8: ổn (hơi ngọng, giọng miền Nam vài chỗ, dễ thương)
-- [~] Kiểm tra chạy offline — đã chạy với `HF_HUB_OFFLINE=1`; còn thử khi **ngắt mạng thật**
+- [x] Kiểm tra chạy offline — `HF_HUB_OFFLINE=1` + đo e2e không có kết nối nào ra ngoài loopback (rút mạng thật: test Phase 6)
 - [x] `/adr` chọn TTS — [ADR-0005](adr/0005-chon-tts.md) **Chấp nhận: ZeroTTS int8**
 
 ### 0.6. License
@@ -61,30 +69,42 @@
 - [x] Ghi license từng model vào MODEL_EVALUATION.md (Qwen Apache-2.0, Whisper MIT, VieNeu v3 Apache-2.0, ZeroTTS MIT, Korva Apache-2.0)
 
 ### Gate Phase 0
-- [ ] Có ít nhất một bộ LLM + STT + TTS chạy **offline** trên máy đích
-- [ ] Số đo pp/tg/TTFT, WER/CER, first-audio/RTF đã ghi trong MODEL_EVALUATION.md
-- [ ] Đã có ADR cho LLM, STT, TTS, Live2D
-- [ ] Ước tính "thả PTT → nghe tiếng đầu tiên" từ số đo ≤ 4 s, hoặc đã có ADR chấp nhận ngưỡng khác
+- [x] Có ít nhất một bộ LLM + STT + TTS chạy **offline** trên máy đích (e2e, 0 kết nối ra ngoài)
+- [x] Số đo pp/tg/TTFT, WER/CER, first-audio/RTF đã ghi trong MODEL_EVALUATION.md
+- [x] Đã có ADR cho LLM, STT, TTS, Live2D (0008, 0007, 0005, 0006)
+- [x] Ước tính "thả PTT → nghe tiếng đầu tiên" từ số đo ≤ 4 s — **đo thật e2e: TB 2.63 s, max 3.59 s**
 
 ---
 
 ## Phase 1 — Lõi AI local (chat văn bản)
 
-**Trạng thái:** Chưa bắt đầu
+**Trạng thái:** Đang làm
 
-- [ ] Scaffold Tauri 2 + React + TS + Tailwind
-- [ ] Tauri: CSP, capability tối thiểu, không plugin shell
-- [ ] Rust process manager: khởi động/health/restart/tắt `llama-server` (loopback, cổng ngẫu nhiên)
-- [ ] Chat UI streaming token (SSE → Tauri event)
-- [ ] Dừng sinh
-- [ ] `config/personality.md` + quy tắc an toàn trong code, prompt theo SPEC §5.4
-- [ ] SQLite: conversations, messages, settings, migration `user_version`
-- [ ] Log `tracing` ra `E:\Mori Data\logs\` (không ghi nội dung hội thoại)
+- [x] Scaffold Tauri 2.12 + React 19 + TS 7 + Tailwind 4 + Vite 8 (viết tay, không dùng template)
+- [x] Tauri: CSP, capability tối thiểu (`core:default`), không plugin shell/fs/http
+- [x] Rust process manager (`src-tauri/src/llm.rs`): khởi động/health/warm-up/restart (backoff)/tắt `llama-server`; loopback, cổng + API key ngẫu nhiên, `--no-webui`
+- [x] Security audit Phase 1 (agent `security-auditor`: 0 Critical/High, 3 Medium, 5 Low) → sửa theo [ADR-0009](adr/0009-bao-mat-llama-server.md): xóa env `LLAMA_*`, key qua env (getrandom), `--no-slots --offline`, Job Object, `max_tokens`, cắt lịch sử theo ký tự, 1 lượt sinh/lúc, timeout HTTP, CSP chặt hơn, log 14 ngày. Kiểm chứng: 401 khi không key; key không ở command line; env bẫy không có tác dụng; kill `mori.exe` → llama-server chết theo
+- [x] Kiểm tra tự động: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` (7 test), `tsc --noEmit` — sạch
+- [x] Chat UI streaming token (SSE → Tauri `Channel`)
+- [x] Dừng sinh (`stop_generation`, Notify theo từng lượt)
+- [x] `config/personality.md` (ghi đè được bằng `E:\Mori Data\settings\personality.md`) + quy tắc an toàn trong code (`prompt.rs`)
+- [x] SQLite (`db.rs`): conversations, messages, settings, migration `user_version`, `secure_delete`
+- [x] Log `tracing` ra `E:\Mori Data\logs\mori.<ngày>.log` (chỉ id + độ dài, không nội dung, giữ 14 ngày)
+- [x] Chế độ nhanh (ADR-0008): setting `fast_mode`, đổi model = khởi động lại llama-server
+- [x] Đo RAM với 8B: llama-server 6.2 GB; máy còn 6.8 GB RAM / 0.8 GB commit trống (pagefile tự nới 34 → 43.6 GB) → chật, đo lại ở Phase 2–3
 
 ### Gate Phase 1
-- [ ] Chat văn bản chạy khi ngắt mạng
-- [ ] AI-01..AI-05, AI-07 đạt
-- [ ] Kill `llama-server` → app không sập, tự khởi động lại
+- [ ] **Người dùng** thử: chat văn bản chạy khi ngắt mạng (tắt Wi-Fi)
+- [ ] **Người dùng** thử trong app: AI-01..AI-05, AI-07 (nút Dừng) đạt; Chế độ nhanh đổi model được; mở lại app còn hội thoại
+- [x] Kill `llama-server` → app không sập, tự khởi động lại (đo: phát hiện 1.3 s, Ready lại sau 6.3 s, PID + cổng mới)
+
+---
+
+### Bảo mật — để sau (từ audit Phase 1, ADR-0009)
+- [ ] 🔐 ACL `E:\Mori Data` chỉ cho user hiện tại + SYSTEM + Administrators (hiện "Authenticated Users: Modify") — cần người dùng đồng ý đổi quyền thư mục
+- [ ] Kiểm SHA-256 `llama-server.exe` + model theo manifest trước khi chạy (Model Manager, Phase 6)
+- [ ] Thu hẹp capability từ `core:default` → chỉ event listen/unlisten (thử lại streaming Channel)
+- [ ] Loại trừ Windows Error Reporting cho `mori.exe` / `llama-server.exe` (dump có thể chứa hội thoại)
 
 ---
 

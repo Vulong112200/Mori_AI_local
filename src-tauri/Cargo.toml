@@ -1,0 +1,29 @@
+[package]
+name = "mori"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "mori_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["process", "time", "sync", "macros"] }
+# Chỉ gọi llama-server trên loopback → không cần TLS.
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream"] }
+futures-util = "0.3"
+rusqlite = { version = "0.42", features = ["bundled"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-appender = "0.2"
+getrandom = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects"] }

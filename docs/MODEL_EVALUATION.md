@@ -80,11 +80,21 @@ Phân tích lỗi (turbo, mặc định): phần lớn là khác **định dạn
 
 Các cột Tự nhiên / Phát âm / Nhịp / vi-en: **người dùng nghe và chấm**.
 
-## 5. Kết luận (sơ bộ, 2026-11-12)
+## 5. End-to-end (đo thật)
 
-- **LLM:** [ADR-0004](adr/0004-chon-llm.md) chấp nhận **Qwen3-4B-Instruct-2507 trên Vulkan** (nhanh nhất). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → chờ người dùng thử trực tiếp rồi quyết định có thay ADR-0004 không.
+`scripts/phase0/e2e_latency.py`: wav → whisper-cli Vulkan (turbo q5_0, không tính nạp model) → llama-server router (Qwen3-8B, stream tới hết câu đầu) → ZeroTTS int8 chunk đầu. 6 câu giọng tổng hợp, sau warm-up. Pin, Balanced.
+
+| Ngày | LLM | STT | TTFT | Tới hết câu đầu | TTS chunk đầu | **Tổng TB / max** | Mạng ngoài loopback |
+|---|---|---|---|---|---|---|---|
+| 2026-11-12 | Qwen3-8B | 1.13–1.42 s | 0.39–0.48 s | 0.66–2.25 s | 0.07–0.10 s | **2.63 / 3.59 s** ✅ | Không có (theo dõi mỗi 250 ms) |
+
+Thời gian "tới hết câu đầu" phụ thuộc độ dài câu đầu model sinh ra → Phase 3 nên cắt cả ở dấu phẩy nếu câu đầu dài.
+
+## 6. Kết luận (sơ bộ, 2026-11-12)
+
+- **LLM:** [ADR-0008](adr/0008-llm-8b-mac-dinh.md): **Qwen3-8B mặc định**, Qwen3-4B-Instruct-2507 làm chế độ nhanh (thay ADR-0004). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → người dùng chọn 8B mặc định.
 - **TTS:** người dùng **thích giọng ZeroTTS** hơn; VieNeu v3 Turbo int8 không méo và là phương án nhanh. **Chốt ZeroTTS int8 (4 luồng)**: first audio 0.06 s, RTF 0.31; người dùng nghe đạt. [ADR-0005](adr/0005-chon-tts.md) đã chấp nhận. Xem [ADR-0005](adr/0005-chon-tts.md).
-- **STT:** đề xuất **Whisper large-v3-turbo q5_0 trên whisper.cpp Vulkan tự build** — WER 7.8 %, 1.53 / 1.77 s (giọng tổng hợp). Xem [ADR-0007](adr/0007-chon-stt.md). Còn phải kiểm chứng trên giọng thật.
+- **STT:** chọn **Whisper large-v3-turbo q5_0 trên whisper.cpp Vulkan tự build** — WER 7.8 %, 1.53 / 1.77 s (giọng tổng hợp). Xem [ADR-0007](adr/0007-chon-stt.md). Còn phải kiểm chứng trên giọng thật.
 - **Ước tính "thả PTT → nghe tiếng đầu tiên"** (cộng các số đo riêng, chưa đo nối liền): STT turbo Vulkan 1.5–1.8 s + LLM TTFT ấm + câu đầu tiên (~15 token) + TTS ZeroTTS int8 0.06 s:
   - Qwen3-4B-Instruct-2507: 0.25 + 0.65 s → **≈ 2.5–2.8 s** ✅
   - Qwen3-8B: 0.40 + 1.3 s → **≈ 3.3–3.6 s** ✅ (sát ngưỡng 4 s hơn)

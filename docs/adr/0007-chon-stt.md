@@ -1,6 +1,6 @@
 # ADR-0007: STT — Whisper large-v3-turbo q5_0 trên whisper.cpp Vulkan (tự build)
 
-**Trạng thái:** Đề xuất — cần kiểm chứng lại trên giọng thật trước gate Phase 2
+**Trạng thái:** Chấp nhận (2026-11-12) — vẫn phải kiểm chứng trên giọng thật trước gate Phase 2
 **Ngày:** 2026-11-12
 
 ## Bối cảnh

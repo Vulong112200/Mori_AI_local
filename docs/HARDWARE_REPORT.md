@@ -52,6 +52,15 @@ RAM trống 7.8 GB, commit trống 3.0 GB, giới hạn commit đã tự nới l
 | LLM sinh liên tục 10 phút: tg đầu → cuối (throttle?) | _chưa đo_ |
 | Cắm sạc vs pin (chênh lệch tg) | _chưa đo_ |
 
-## 5. Ghi chú / vấn đề
+## 5. RAM khi chạy app (Phase 1, 2026-11-12)
+
+| Thành phần | RAM |
+|---|---|
+| llama-server Qwen3-8B (Vulkan, ctx 8192) | 6.2 GB |
+| mori.exe (Rust) | 0.04 GB |
+| WebView2 (gồm cả ứng dụng khác) | 1.3 GB |
+| Máy còn trống | 6.8 GB RAM, 0.8 GB commit (giới hạn tự nới 34 → 43.6 GB) |
+
+## 6. Ghi chú / vấn đề
 
 - Benchmark nên chạy khi **cắm sạc** và power plan "Best performance"; ghi điều kiện vào mỗi dòng kết quả.
