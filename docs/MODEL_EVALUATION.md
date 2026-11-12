@@ -59,6 +59,41 @@ Câu trả lời đầy đủ: `scripts/phase0/out/llm_answers_<model>.md` (sinh
 | 2026-11-12 | Whisper large-v3-turbo q5_0 | **Vulkan** (v1.9.5 tự build) | 18 (TTS) | **0.078** | 0.039 | **1.53** | **1.77** | | Mặc định (khung 30 s). **Đạt mục tiêu < 2 s và chính xác nhất** |
 | 2026-11-12 | Whisper small | Vulkan (v1.9.5) | 18 (TTS) | 0.169 | 0.071 | 1.12 | 1.73 | | Mặc định |
 
+### 3.1. Giọng thật (100 câu người dùng thu trong app, 2026-11-12)
+
+Thu bằng chế độ Thu mẫu (micro mặc định, cpal → 16 kHz nội suy tuyến tính). Âm lượng thấp (RMS 0.009–0.031, đỉnh 0.09–0.34), không clip; 140–190 ms đầu mỗi file là số 0 (micro khởi động). Đo qua đúng đường app (`cargo test stt_bench -- --ignored`), turbo q5_0, Vulkan, độ trễ không tính nạp model.
+
+| Cấu hình whisper-server | WER | CER | Câu "bịa" | Độ trễ TB / P95 | đời thường | miền Nam | nhiễu/nhanh | số/dài | thuật ngữ |
+|---|---|---|---|---|---|---|---|---|---|
+| `-bs 5` + `--prompt` từ vựng | 0.409 | 0.288 | 10 | 1.14 / 1.41 s | 0.291 | 0.546 | 0.395 | 0.353 | 0.476 |
+| `-bs 5`, không prompt | 0.408 | 0.291 | 11 | 1.28 / 1.67 s | 0.280 | 0.580 | 0.389 | 0.366 | 0.429 |
+| **`-bs 5 -bo 5 -nt`, không prompt** (= whisper-cli) | **0.310** | 0.211 | 2 | **1.19 / 1.49 s** | **0.143** | 0.377 | 0.312 | 0.281 | 0.444 |
+
+- `whisper-cli` mặc định, không prompt, cùng 100 file: WER 0.310 — trùng cấu hình cuối → app giờ khớp cấu hình đã đo.
+- Bỏ 2 câu "bịa" → WER 0.286. Lỗi còn lại chủ yếu là **nhận nhầm âm** ("cất cánh" → "cách cánh", "bạn nữ" → "bệnh nữ"), không phải định dạng số → giới hạn của turbo với giọng/micro này.
+- **Chưa đạt** ngưỡng đề xuất (ADR-0007: ≤ 15 %, nhóm ≤ 25 %). Chỉ nhóm đời thường gần đạt.
+
+So model trên cùng 100 câu (`-bs 5 -bo 5 -nt`, không prompt; "số → chữ" = đổi số sang chữ cả hai phía, `wer.py`):
+
+| Model (q5_0) | WER | WER số → chữ | đời thường | miền Nam | nhiễu/nhanh | số/dài | thuật ngữ | Độ trễ TB / P95 |
+|---|---|---|---|---|---|---|---|---|
+| large-v3-turbo | 0.310 | 0.288 | 0.143 | 0.372 | 0.312 | 0.228 | 0.427 | 1.19 / 1.49 s |
+| **large-v3** | **0.230** | **0.206** | 0.148 | **0.271** | **0.255** | 0.114 | **0.323** | 1.77 / 2.41 s |
+| large-v3 + chuẩn hóa âm lượng | 0.245 | 0.222 | 0.143 | 0.285 | 0.274 | 0.139 | 0.344 | 1.86 / 2.54 s |
+| PhoWhisper-large | 0.344 | 0.248 | **0.088** | 0.314 | 0.306 | **0.106** | 0.547 | 2.13 / 3.15 s |
+
+→ [ADR-0011](adr/0011-stt-large-v3.md): app dùng large-v3.
+
+**Lần thu 2 (2026-11-13)** — người dùng thu lại cả 100 câu, đọc đúng chữ, sau khi sửa micro (chờ tín hiệu thật, lọc chống alias):
+
+| Model (q5_0) | WER | WER số → chữ | CER | đời thường | miền Nam | nhiễu/nhanh | số/dài | thuật ngữ | Độ trễ TB / P95 |
+|---|---|---|---|---|---|---|---|---|---|
+| **large-v3** | **0.093** | **0.077** | 0.054 | 0.027 | 0.068 | 0.127 | 0.085 | 0.169 | 1.67 / 2.08 s |
+| large-v3-turbo | 0.120 | 0.103 | 0.068 | 0.038 | 0.155 | 0.134 | 0.095 | 0.190 | 1.11 / 1.29 s |
+| PhoWhisper-large | 0.202 | 0.113 | 0.145 | **0.022** | 0.116 | 0.115 | 0.310 (số → chữ 0.033) | 0.365 | 2.04 / 3.19 s |
+
+→ **Đạt ngưỡng gate Phase 2** (≤ 15 %, nhóm ≤ 25 %) trên WER thô. Lỗi còn lại: từ tiếng Anh ("Unit test fail … parse JSON" → "Unitec failed a book by Jason"), tên "Mori" ("Mòri", "Emory"), vài âm ("cất cánh" → "kích cánh"). Lần 1 → lần 2 giảm mạnh cho thấy phần lớn lỗi lần 1 do cách thu (mất đầu câu, đọc lệch chữ), không phải model. 1/100 câu bị "bịa" — bộ lọc trong `stt.rs` bắt được. PhoWhisper giỏi tiếng Việt thuần, kém từ tiếng Anh (viết "cao gót lipi" cho "cargo clippy").
+
 Phân tích lỗi (turbo, mặc định): phần lớn là khác **định dạng** ("14h30" vs "14 giờ 30", "32GB") hoặc TTS đọc chưa chuẩn ("PostgreSQL", "Pull request"). Lỗi thật: tên riêng ("Mori" → "Maury") → dùng `--prompt` từ vựng ở Phase 2. CER không dấu ≈ CER → rất ít lỗi chỉ do sai dấu thanh.
 
 ## 4. Kết quả TTS

@@ -3,15 +3,16 @@
 > Nguồn sự thật duy nhất cho tiến độ. Tick `[x]` khi xong. Cập nhật dòng **Trạng thái** của phase. Gate chỉ được tick qua `/gate <n>`.
 > Ký hiệu: `[ ]` chưa làm · `[~]` đang làm · `[x]` xong · `[!]` bị chặn (ghi lý do) · 🔐 cần người dùng duyệt (tải/cài).
 
-**Phase hiện tại:** 1
-**Cập nhật:** 2026-11-12
+**Phase hiện tại:** 3
+**Cập nhật:** 2026-11-13
 
 ## Bàn giao (đọc trước khi làm tiếp)
 
-- **Đã xong:** Phase 0 (đo & chọn toàn bộ model, gate đạt). Phase 1 (app chat văn bản) **code xong**, đã qua kiểm tra tự động + kiểm chứng bảo mật trên máy.
-- **Đang chờ:** người dùng thử app để tick 2 ô còn lại của gate Phase 1 (chat khi ngắt mạng; AI-01..05, AI-07 trong app). Sau đó chạy `/gate 1`.
-- **Việc kế tiếp sau gate 1:** Phase 2 (giọng nói vào). Cần trước: người dùng thu ≥ 20 câu giọng thật (`tests/fixtures/stt_manifest.csv`).
-- **Kiến trúc thực tế:** [ARCHITECTURE.md](ARCHITECTURE.md). Quyết định: ADR [0005](adr/0005-chon-tts.md) TTS, [0006](adr/0006-license-live2d.md) Live2D, [0007](adr/0007-chon-stt.md) STT, [0008](adr/0008-llm-8b-mac-dinh.md) LLM, [0009](adr/0009-bao-mat-llama-server.md) bảo mật.
+- **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào).
+- **Đang làm:** Phase 3 (giọng nói ra) — code xong, 2 tiêu chí gate đạt bằng test tự động (`cargo test tts_gate -- --ignored`), audit 0 Critical/High (Medium/Low đã sửa). **Còn:** người dùng nghe thử trong app + đo e2e "thả F2 → nghe tiếng" ≤ 4 s, rồi `/gate 3`. Tốc độ đọc: hoãn (ZeroTTS không hỗ trợ).
+- **Sửa 2026-11-12:** app sập lúc mở trên WebView2 157 (`scrollIntoView` trả Promise vào `useEffect`) — đã sửa `App.tsx`. Capability đã thu hẹp → lượt thử gate cũng kiểm chứng streaming.
+- **Phase 0–2 đã qua gate.** Ngoại lệ còn mở: WebView2 tự kết nối ra Microsoft (ADR-0010, xử lý Phase 6).
+- **Kiến trúc thực tế:** [ARCHITECTURE.md](ARCHITECTURE.md). Quyết định: ADR [0005](adr/0005-chon-tts.md) TTS, [0006](adr/0006-license-live2d.md) Live2D, [0007](adr/0007-chon-stt.md) STT, [0008](adr/0008-llm-8b-mac-dinh.md) LLM, [0009](adr/0009-bao-mat-llama-server.md) bảo mật, [0010](adr/0010-webview2-ket-noi-ra-ngoai.md) WebView2.
 - **Chạy app:** `npm run tauri dev` (xem ARCHITECTURE §8).
 
 ---
@@ -78,7 +79,7 @@
 
 ## Phase 1 — Lõi AI local (chat văn bản)
 
-**Trạng thái:** Đang làm
+**Trạng thái:** Hoàn thành (2026-11-12)
 
 - [x] Scaffold Tauri 2.12 + React 19 + TS 7 + Tailwind 4 + Vite 8 (viết tay, không dùng template)
 - [x] Tauri: CSP, capability tối thiểu (`core:default`), không plugin shell/fs/http
@@ -94,49 +95,61 @@
 - [x] Đo RAM với 8B: llama-server 6.2 GB; máy còn 6.8 GB RAM / 0.8 GB commit trống (pagefile tự nới 34 → 43.6 GB) → chật, đo lại ở Phase 2–3
 
 ### Gate Phase 1
-- [ ] **Người dùng** thử: chat văn bản chạy khi ngắt mạng (tắt Wi-Fi)
-- [ ] **Người dùng** thử trong app: AI-01..AI-05, AI-07 (nút Dừng) đạt; Chế độ nhanh đổi model được; mở lại app còn hội thoại
+- [x] **Người dùng** thử: chat văn bản chạy khi ngắt mạng (tắt Wi-Fi) — log WLAN: mất mạng 17:07:46–17:10:23, 6 lượt chat trả lời đủ trong khoảng đó
+- [x] **Người dùng** thử trong app: AI-01..AI-05, AI-07 (nút Dừng) đạt; Chế độ nhanh đổi model được; mở lại app còn hội thoại — người dùng xác nhận; log: `stopped=true`, 4B Ready sau 3.2 s, cùng conversation id sau khi mở lại
+- Audit gate: code đạt mọi mục; WebView2 (runtime Microsoft) tự kết nối ra ngoài → [ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md), chặn hẳn ở Phase 6
 - [x] Kill `llama-server` → app không sập, tự khởi động lại (đo: phát hiện 1.3 s, Ready lại sau 6.3 s, PID + cổng mới)
 
 ---
 
 ### Bảo mật — để sau (từ audit Phase 1, ADR-0009)
 - [ ] 🔐 ACL `E:\Mori Data` chỉ cho user hiện tại + SYSTEM + Administrators (hiện "Authenticated Users: Modify") — cần người dùng đồng ý đổi quyền thư mục
+- [ ] Thử crash thật (`abort()` bản debug) → xác nhận không có dump trong `WER\ReportQueue`, `CrashDumps`, event 1001
 - [ ] Kiểm SHA-256 `llama-server.exe` + model theo manifest trước khi chạy (Model Manager, Phase 6)
-- [ ] Thu hẹp capability từ `core:default` → chỉ event listen/unlisten (thử lại streaming Channel)
-- [ ] Loại trừ Windows Error Reporting cho `mori.exe` / `llama-server.exe` (dump có thể chứa hội thoại)
+- [x] Thu hẹp capability từ `core:default` → `core:event:allow-listen/unlisten` (streaming kiểm chứng cùng lượt thử gate 1)
+- [x] Loại trừ Windows Error Reporting cho `mori.exe` / `llama-server.exe` (`WerAddExcludedApplication`, HKCU; đã thấy trong registry) + xóa dump Crashpad WebView2 lúc khởi động
 
 ---
 
 ## Phase 2 — Giọng nói vào
 
-**Trạng thái:** Chưa bắt đầu
+**Trạng thái:** Hoàn thành (2026-11-13)
 
-- [ ] cpal thu micro 16 kHz mono, chọn thiết bị
-- [ ] Push-to-talk (hotkey + nút), trạng thái micro rõ
-- [ ] `whisper-server` loopback, lazy load
-- [ ] Xem/sửa transcript trước khi gửi
-- [ ] Buffer audio xóa sau nhận dạng, không ghi đĩa
+- [x] cpal thu micro 16 kHz mono, chọn thiết bị (`audio.rs`, setting `mic`)
+- [x] Push-to-talk (giữ F2 khi cửa sổ đang focus + nút 🎙, Esc hủy), trạng thái micro rõ — hotkey toàn cục: chưa (cần plugin, hỏi khi cần)
+- [x] `whisper-server` loopback, lazy load, tắt sau 5 phút rảnh, request-path bí mật (`stt.rs`; test thật: lần đầu 5.8 s, sau 0.93 s)
+- [x] Xem/sửa transcript trước khi gửi (đổ vào ô nhập) + tùy chọn **Tự gửi** (mặc định bật)
+- [x] Sửa: whisper-server mặc định greedy → `-bs 5` như lúc đo WER (người dùng gặp "nghe được" → "nhìn được")
+- [x] Buffer audio xóa sau nhận dạng, không ghi đĩa
+- [x] Bộ 100 câu (`tests/fixtures/stt_manifest.csv`, 5 nhóm × 20) + chế độ **Thu mẫu** trong app bản dev (`samples.rs`: chỉ debug, tên file phải có trong manifest, ghi `tests/fixtures/audio/`)
+- [x] **Người dùng** thu 100 câu bằng nút "Thu mẫu" — đo: WER 41 % → **31 %** sau khi bỏ prompt, `-bo 5 -nt` (MODEL_EVALUATION §3.1). **Chưa đạt ngưỡng 15 %**
+- [x] 🔐 Thử model STT khác trên cùng 100 câu: large-v3 **20.6 %**, PhoWhisper 24.8 %, turbo 28.8 % (số → chữ) → [ADR-0011](adr/0011-stt-large-v3.md) dùng large-v3. Chuẩn hóa âm lượng: kém hơn, bỏ
+- [x] Lọc chống alias khi hạ mẫu; Thu mẫu hiện "Mori nghe được" sau mỗi câu
+- [x] **Người dùng** thu lại 100 câu (micro đã sửa) → large-v3 **9.3 %**, turbo 12.0 %, PhoWhisper 20.2 % (số → chữ 11.3 %)
+- [x] **Người dùng** thử nói trong app (micro thật) → xem log `mic_stop_ms`, `stt_ms` (lần 1: 49 ms / 0.81 s)
 
 ### Gate Phase 2
-- [ ] Bộ 100 câu: WER/CER đạt ngưỡng đã chốt trong ADR STT
-- [ ] Stop micro < 300 ms
+- [x] Bộ 100 câu: WER/CER đạt ngưỡng đã chốt trong ADR STT — large-v3 WER **9.3 %** ≤ 15 %, nhóm cao nhất thuật ngữ 16.9 % ≤ 25 % (MODEL_EVALUATION §3.1)
+- [x] Stop micro < 300 ms — log `mic_stop_ms`: 44–79 ms (5 lần)
+- Audit gate: đạt, 0 Critical/High/Medium; Low (`init` chặn UI) đã sửa
 
 ---
 
 ## Phase 3 — Giọng nói ra
 
-**Trạng thái:** Chưa bắt đầu
+**Trạng thái:** Đang làm
 
-- [ ] TTS worker (JSON Lines, SPEC §13)
-- [ ] Cắt câu từ stream LLM, hàng đợi TTS có `seq`
-- [ ] rodio phát audio, sự kiện RMS ~30 Hz
-- [ ] Ngắt lời: hủy LLM + TTS + phát (`turn_id`)
-- [ ] Chọn giọng, tốc độ
+- [x] TTS worker (JSON Lines, SPEC §13) — `workers/tts_worker.py` nhúng trong binary, `tts.rs` lazy/restart/Job Object; nạp 7.3 s, RAM 1.1 GB
+- [x] Cắt câu từ stream LLM (`speech.rs`, bỏ emoji/markdown/code), hàng đợi TTS có `seq`
+- [x] Phát audio bằng **cpal output** (`player.rs`, không thêm rodio), sự kiện `tts-level` ~30 Hz + `tts-playing`
+- [x] Ngắt lời: hủy LLM + TTS + phát (`turn`) — nút Dừng/Ngắt, giữ F2 khi Mori đang nói
+- [x] Chọn giọng (8 giọng ZeroTTS, mặc định maichi), bật/tắt "Mori nói"
+- [ ] Tốc độ đọc — ZeroTTS 0.1.5 không có tham số tốc độ; đổi tốc độ phát làm méo cao độ → hoãn (cần time-stretch)
 
 ### Gate Phase 3
-- [ ] Không lặp/thiếu đoạn qua 50 lượt có ngắt lời ngẫu nhiên
-- [ ] TTS first audio P95 < 1.5 s
+- [x] Không lặp/thiếu đoạn qua 50 lượt có ngắt lời ngẫu nhiên — `cargo test tts_gate -- --ignored`: 102 request / 431 chunk, seq liên tục, 0 chunk lượt cũ, lượt cuối đủ 3 câu
+- [x] TTS first audio P95 < 1.5 s — đo 50 lượt: TB 99–118 ms, **P95 200–244 ms** (2 lần chạy)
+- [ ] **Người dùng** nghe thử trong app (giọng, ngắt lời) + đo e2e "thả F2 → nghe tiếng" ≤ 4 s
 
 ---
 
@@ -178,6 +191,7 @@
 **Trạng thái:** Chưa bắt đầu
 
 - [ ] Benchmark đầy đủ (SPEC §19.4–19.5)
+- [ ] 🔐 WebView2 Fixed Version + luật firewall chặn outbound ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo 0 kết nối
 - [ ] Kiểm tra offline + privacy (SPEC §19.6)
 - [ ] Khôi phục: crash worker, đổi thiết bị audio, sleep/resume
 - [ ] Màn hình "sẵn sàng offline"

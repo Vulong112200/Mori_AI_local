@@ -1,6 +1,103 @@
 file,category,ref
-# Hướng dẫn: thu âm WAV 16 kHz mono 16-bit, đặt vào tests/fixtures/audio/ (thư mục này không commit). Xóa dòng ví dụ và dòng này khi điền.
-# category: doi_thuong | mien_nam | thuat_ngu | so_dai | nhieu_nhanh (mỗi loại 20 câu cho đủ 100)
-d01.wav,doi_thuong,Mori ơi hôm nay mình hơi mệt
-t01.wav,thuat_ngu,bạn mở file package dot json rồi chạy npm install giúp mình
-s01.wav,so_dai,cuộc họp dời sang hai giờ chiều thứ sáu ngày mười hai tháng mười một
+# Thu bằng app (bản dev): nút Thu mẫu → giữ F2 đọc từng câu → WAV 16 kHz mono vào tests/fixtures/audio/ (không commit).
+# nhieu_nhanh: đọc nhanh, hoặc bật quạt/nhạc/TV nền. mien_nam: nói tự nhiên như ngoài đời.
+d01.wav,doi_thuong,"Mori ơi, hôm nay mình hơi mệt."
+d02.wav,doi_thuong,Bạn nghe được mình nói không?
+d03.wav,doi_thuong,Tối nay mình định nấu canh chua với cá kho.
+d04.wav,doi_thuong,Nhắc mình uống nước sau một tiếng nữa nhé.
+d05.wav,doi_thuong,Hôm qua mình đi dạo công viên với con chó nhỏ.
+d06.wav,doi_thuong,Cuối tuần này trời có mưa không nhỉ?
+d07.wav,doi_thuong,Mình muốn học thêm tiếng Nhật vào buổi tối.
+d08.wav,doi_thuong,Kể cho mình nghe một câu chuyện vui đi.
+d09.wav,doi_thuong,Bạn nghĩ mình nên đọc sách gì trước khi ngủ?
+d10.wav,doi_thuong,Sáng nay kẹt xe quá nên mình đến công ty trễ.
+d11.wav,doi_thuong,Mẹ mình vừa gọi điện hỏi khi nào về quê.
+d12.wav,doi_thuong,Mình thích nghe nhạc nhẹ khi làm việc.
+d13.wav,doi_thuong,Cảm ơn bạn đã giúp mình hôm nay.
+d14.wav,doi_thuong,Chiều nay mình có hẹn đi uống cà phê với bạn cũ.
+d15.wav,doi_thuong,Mình hay quên chìa khóa xe ở nhà.
+d16.wav,doi_thuong,Bạn có biết cách làm bánh flan không?
+d17.wav,doi_thuong,Dạo này mình ngủ không ngon giấc lắm.
+d18.wav,doi_thuong,Mình đang tính mua một cái ghế mới cho phòng làm việc.
+d19.wav,doi_thuong,Hôm nay là sinh nhật em gái mình.
+d20.wav,doi_thuong,"Chúc bạn ngủ ngon, mai mình nói chuyện tiếp nhé."
+n01.wav,mien_nam,"Trời ơi, hôm nay nóng muốn xỉu luôn đó."
+n02.wav,mien_nam,Mình mới ghé chợ mua mấy trái xoài cát chín cây.
+n03.wav,mien_nam,Ba mình nói chiều nay về sớm ăn cơm chung.
+n04.wav,mien_nam,Ổng nói vậy chứ hổng phải vậy đâu.
+n05.wav,mien_nam,"Bữa nay mình lười quá, hổng muốn làm gì hết trơn."
+n06.wav,mien_nam,Tụi mình tính đi Cần Thơ chơi mấy bữa.
+n07.wav,mien_nam,Má kêu mình ra tiệm tạp hóa mua chai nước mắm.
+n08.wav,mien_nam,Cái áo này mặc vô coi bộ cũng được đó chớ.
+n09.wav,mien_nam,Hồi nãy mình chạy xe ngang qua cầu Sài Gòn.
+n10.wav,mien_nam,"Em ơi, cho anh ly cà phê sữa đá ít đường nha."
+n11.wav,mien_nam,Mấy đứa nhỏ trong xóm chơi đá banh tới tối mịt.
+n12.wav,mien_nam,Nói thiệt chứ mình thấy cái phim đó hơi dở.
+n13.wav,mien_nam,Mình ghiền ăn hủ tiếu Nam Vang buổi sáng.
+n14.wav,mien_nam,Để mình coi lại lịch rồi mình nhắn cho bạn sau nha.
+n15.wav,mien_nam,"Ngoài đường mưa quá trời, ướt hết rồi nè."
+n16.wav,mien_nam,Ông bà ngoại ở dưới quê nuôi mấy con gà.
+n17.wav,mien_nam,"Cái quạt này kêu rè rè hoài, chắc hư rồi."
+n18.wav,mien_nam,"Thôi kệ đi, mai tính tiếp, giờ đi ngủ cái đã."
+n19.wav,mien_nam,Mình mới mua được đôi dép mới ở chợ Bến Thành.
+n20.wav,mien_nam,Bạn ăn cơm chưa? Chưa thì ăn đi rồi nói chuyện tiếp.
+t01.wav,thuat_ngu,Bạn mở file package.json rồi chạy npm install giúp mình.
+t02.wav,thuat_ngu,Hàm này bị lỗi null pointer khi input rỗng.
+t03.wav,thuat_ngu,"Mình vừa push code lên GitHub, bạn review pull request giúp nhé."
+t04.wav,thuat_ngu,Server trả về lỗi 500 khi gọi API đăng nhập.
+t05.wav,thuat_ngu,Mình đang dùng React với TypeScript cho phần frontend.
+t06.wav,thuat_ngu,Nhớ chạy cargo clippy trước khi commit nha.
+t07.wav,thuat_ngu,Database bị deadlock khi hai transaction cùng update một bảng.
+t08.wav,thuat_ngu,Bạn giải thích giúp mình async await trong Rust được không?
+t09.wav,thuat_ngu,Container Docker không start được vì thiếu biến môi trường.
+t10.wav,thuat_ngu,Mình muốn deploy app lên server Linux bằng Nginx.
+t11.wav,thuat_ngu,Unit test fail ở bước parse JSON.
+t12.wav,thuat_ngu,Thêm index cho cột email để query chạy nhanh hơn.
+t13.wav,thuat_ngu,Mình bị conflict khi merge branch feature vào main.
+t14.wav,thuat_ngu,Python báo lỗi module not found khi import numpy.
+t15.wav,thuat_ngu,Cái component này render lại quá nhiều lần.
+t16.wav,thuat_ngu,"Mori ơi, Tauri dùng WebView2 trên Windows đúng không?"
+t17.wav,thuat_ngu,Bạn viết giúp mình một regex kiểm tra số điện thoại.
+t18.wav,thuat_ngu,Memory leak xảy ra khi mở nhiều tab cùng lúc.
+t19.wav,thuat_ngu,Mình cần refactor lại hàm xử lý thanh toán.
+t20.wav,thuat_ngu,Build trên CI bị timeout sau 30 phút.
+s01.wav,so_dai,"Cuộc họp dời sang 2 giờ chiều thứ Sáu, ngày 12 tháng 11."
+s02.wav,so_dai,"Tổng chi phí tháng này là 3 triệu 500 nghìn đồng, cao hơn tháng trước."
+s03.wav,so_dai,"Chuyến bay của mình cất cánh lúc 7 giờ 45 sáng, nhớ đặt báo thức sớm."
+s04.wav,so_dai,Căn phòng có hai cửa sổ nhìn ra vườn và một ban công nhỏ phía sau.
+s05.wav,so_dai,Năm 2024 công ty tuyển thêm 150 nhân viên mới ở chi nhánh Đà Nẵng.
+s06.wav,so_dai,"Nhiệt độ ngày mai dao động từ 24 đến 32 độ, chiều tối có mưa rào."
+s07.wav,so_dai,"Mình đã chạy được 5 cây số trong 28 phút, nhanh hơn tuần trước."
+s08.wav,so_dai,Đơn hàng số 1024 sẽ được giao trong vòng 3 ngày làm việc.
+s09.wav,so_dai,"Lớp học có 32 học sinh, trong đó có 18 bạn nữ và 14 bạn nam."
+s10.wav,so_dai,Bộ phim dài 2 tiếng 15 phút nhưng mình thấy không hề chán chút nào.
+s11.wav,so_dai,Từ nhà mình đến sân bay mất khoảng 40 phút nếu không kẹt xe.
+s12.wav,so_dai,"Cuốn sách này có 320 trang, mình mới đọc được khoảng một phần ba."
+s13.wav,so_dai,"Hóa đơn tiền điện tháng 10 là 850 nghìn đồng, tăng gần gấp đôi."
+s14.wav,so_dai,Ngày 30 tháng 4 năm nay mình sẽ về quê thăm ông bà khoảng một tuần.
+s15.wav,so_dai,Mỗi ngày mình cố gắng đi bộ ít nhất 30 phút và ngủ đủ 7 tiếng.
+s16.wav,so_dai,Giá vé xem phim cuối tuần là 120 nghìn đồng một người.
+s17.wav,so_dai,"Cuộc thi bắt đầu lúc 8 giờ sáng, mỗi đội có 3 thành viên và 90 phút để làm bài."
+s18.wav,so_dai,"Tòa nhà cao 45 tầng, được xây xong vào năm 2019 ở trung tâm thành phố."
+s19.wav,so_dai,"Nếu đăng ký trước ngày 15, bạn sẽ được tặng thêm 2 tháng sử dụng miễn phí."
+s20.wav,so_dai,"Chuyến tàu từ Hà Nội vào Sài Gòn mất khoảng 32 tiếng, dừng ở nhiều ga dọc đường."
+f01.wav,nhieu_nhanh,"Ê Mori, mấy giờ rồi?"
+f02.wav,nhieu_nhanh,"Nhanh lên, mình sắp trễ giờ họp rồi."
+f03.wav,nhieu_nhanh,Bật giúp mình bài nhạc nào vui vui đi.
+f04.wav,nhieu_nhanh,"Hôm nay ăn gì đây, nghĩ hoài không ra."
+f05.wav,nhieu_nhanh,Mình vừa làm đổ ly nước lên bàn phím.
+f06.wav,nhieu_nhanh,"Đợi chút, có người gõ cửa."
+f07.wav,nhieu_nhanh,Bạn tóm tắt giúp mình ý chính của đoạn này.
+f08.wav,nhieu_nhanh,"Ồn quá, mình nói lại nha, bạn nghe rõ không?"
+f09.wav,nhieu_nhanh,Tắt đèn phòng khách giúp mình với.
+f10.wav,nhieu_nhanh,Mai nhớ nhắc mình mang theo ô nhé.
+f11.wav,nhieu_nhanh,"Thôi xong, quên lưu file rồi."
+f12.wav,nhieu_nhanh,Cho mình hỏi ga tàu gần nhất ở đâu.
+f13.wav,nhieu_nhanh,Hôm nay làm việc năng suất ghê.
+f14.wav,nhieu_nhanh,"Mình đói bụng quá, đi ăn trưa thôi."
+f15.wav,nhieu_nhanh,Đọc lại tin nhắn cuối cùng giúp mình.
+f16.wav,nhieu_nhanh,Trời tối rồi mà vẫn chưa xong việc.
+f17.wav,nhieu_nhanh,Sao mạng chậm thế nhỉ?
+f18.wav,nhieu_nhanh,Cuối tháng này mình đi du lịch Đà Lạt.
+f19.wav,nhieu_nhanh,Ghi chú lại giúp mình: mua sữa với trứng.
+f20.wav,nhieu_nhanh,"Được rồi, cảm ơn Mori nhiều nha."

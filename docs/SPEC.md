@@ -199,7 +199,7 @@ Không chèn timestamp hay dữ liệu thay đổi vào phần 1.
 
 Runtime: `whisper-server` (giữ model trong RAM khi đang trong phiên hội thoại, giải phóng khi nghỉ lâu).
 
-**Đã chọn ([ADR-0007](adr/0007-chon-stt.md)): large-v3-turbo q5_0 trên whisper.cpp v1.9.5 build Vulkan** — WER 7.8 %, 1.53 s TB (giọng tổng hợp). Bản dựng sẵn của whisper.cpp không có Vulkan → phải build:
+**Đã chọn: large-v3 q5_0 ([ADR-0011](adr/0011-stt-large-v3.md), đo trên giọng thật — thay turbo của [ADR-0007](adr/0007-chon-stt.md)) trên whisper.cpp v1.9.5 build Vulkan.** Ghi chú cũ (turbo) — WER 7.8 %, 1.53 s TB (giọng tổng hợp). Bản dựng sẵn của whisper.cpp không có Vulkan → phải build:
 
 ```text
 cmake -S src-v1.9.5 -B build-vulkan -G "Visual Studio 17 2022" -A x64 -DGGML_VULKAN=ON -DWHISPER_BUILD_TESTS=OFF
@@ -222,7 +222,10 @@ Buffer bị xóa ngay sau khi nhận dạng xong.
 - Chọn thiết bị micro; trạng thái micro luôn hiện rõ.
 - Nút dừng tức thì (< 300 ms).
 - Không ghi audio xuống đĩa. Nếu buộc phải ghi tạm, xóa ngay sau xử lý.
-- Hỗ trợ "prompt" từ vựng (tên riêng, thuật ngữ lập trình) cho Whisper.
+- ~~Prompt từ vựng cho Whisper~~ — bỏ: đo trên giọng thật làm Whisper bịa câu (ADR-0007).
+- Giải mã `-bs 5 -bo 5 -nt` — đúng cấu hình whisper-cli đã đo WER; mặc định của whisper-server (greedy, có timestamp) kém hơn rõ (WER 41 % so với 31 %).
+- UI chỉ báo "Đang nghe" khi micro đã có tín hiệu thật (driver trả số 0 ~150 ms đầu) → không mất chữ đầu câu.
+- Tùy chọn **Tự gửi** (mặc định bật, theo yêu cầu người dùng 2026-11-12): nói xong gửi luôn như hội thoại; tắt → transcript vào ô nhập để sửa. Đang có lượt trả lời thì luôn đổ vào ô nhập.
 
 ---
 
@@ -263,7 +266,7 @@ HF_HUB_OFFLINE=1          (khi chạy, sau khi đã tải)
 1. LLM sinh token; Conversation Manager cắt theo câu (`.`, `?`, `!`, xuống dòng; câu quá dài cắt ở dấu phẩy). Trước khi gửi TTS: bỏ emoji và ký hiệu markdown (`**`, `#`, `-` đầu dòng, khối code) — Phase 0 cho thấy model hay chèn emoji.
 2. Câu đầu tiên gửi TTS ngay.
 3. Rust phát audio chunk theo thứ tự, có số thứ tự để chống phát lặp hoặc thiếu.
-4. Trong lúc phát, Rust phát sự kiện RMS ~30 Hz cho avatar.
+4. Trong lúc phát, Rust phát sự kiện RMS ~30 Hz cho avatar. (Thực tế: phát bằng cpal output — đã có cho micro — thay vì rodio.)
 5. Người dùng ngắt lời → hủy LLM, hủy hàng đợi TTS, dừng phát.
 
 ---

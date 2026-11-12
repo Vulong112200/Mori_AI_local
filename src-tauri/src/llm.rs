@@ -316,7 +316,7 @@ impl Llm {
 }
 
 #[cfg(windows)]
-mod job {
+pub(crate) mod job {
     use windows_sys::Win32::{Foundation::HANDLE, System::JobObjects::*};
 
     /// Handle Job Object, giữ suốt đời tiến trình Mori. Khi Mori chết, OS đóng handle → giết mọi tiến trình trong job.
@@ -334,7 +334,10 @@ mod job {
                     return None;
                 }
                 let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                // DIE_ON_UNHANDLED_EXCEPTION: tiến trình con crash thì chết ngay, không gọi WER
+                // (dump có thể chứa hội thoại) — áp cho mọi worker kể cả python.exe của TTS.
+                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+                    | JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
                 let ok = SetInformationJobObject(
                     h,
                     JobObjectExtendedLimitInformation,
@@ -372,14 +375,14 @@ fn display(model: &str) -> String {
     model.trim_end_matches(".gguf").to_string()
 }
 
-fn free_port() -> std::io::Result<u16> {
+pub(crate) fn free_port() -> std::io::Result<u16> {
     Ok(std::net::TcpListener::bind(("127.0.0.1", 0))?
         .local_addr()?
         .port())
 }
 
 /// 128 bit từ CSPRNG của OS.
-fn random_key() -> String {
+pub(crate) fn random_key() -> String {
     let mut b = [0u8; 16];
     getrandom::fill(&mut b).expect("OS RNG");
     b.iter().map(|x| format!("{x:02x}")).collect()

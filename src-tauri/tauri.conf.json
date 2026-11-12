@@ -11,7 +11,8 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "title": "Mori", "width": 480, "height": 720, "minWidth": 360, "minHeight": 480 }
+      { "label": "main", "title": "Mori", "width": 480, "height": 720, "minWidth": 360, "minHeight": 480,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-networking --disable-component-update --disable-domain-reliability --no-pings" }
     ],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; object-src 'none'"

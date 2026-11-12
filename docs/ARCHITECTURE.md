@@ -13,7 +13,7 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 | Chức năng AI | Đã chọn | Chạy trên | Số đo thật (máy đích) | ADR | Trạng thái |
 |---|---|---|---|---|---|
 | **Não (LLM)** | Qwen3-8B Q4_K_M · *chế độ nhanh:* Qwen3-4B-Instruct-2507 | llama.cpp b12284 **Vulkan** (iGPU) | TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s, RAM 6.2 GB | [0008](adr/0008-llm-8b-mac-dinh.md) | ✅ **Đã tích hợp vào app (Phase 1)** |
-| **Tai (STT)** | Whisper large-v3-turbo q5_0 | whisper.cpp v1.9.5 **tự build Vulkan** | WER 7.8 %, 1.53 s TB / 1.77 s P95 (giọng tổng hợp) | [0007](adr/0007-chon-stt.md) | Đã đo, chưa tích hợp (Phase 2) |
+| **Tai (STT)** | Whisper **large-v3** q5_0 | whisper.cpp v1.9.5 **tự build Vulkan** | **Giọng thật 100 câu: WER 20.6 %** (số → chữ), 1.77 s TB / 2.41 s P95 | [0007](adr/0007-chon-stt.md), [0011](adr/0011-stt-large-v3.md) | Đang chạy trong app (Phase 2) |
 | **Giọng (TTS)** | ZeroTTS 0.1.5 **int8**, giọng `maichi` | ONNX Runtime CPU (Python 3.12) | Chunk đầu 0.06 s, RTF 0.31, RAM 0.82 GB | [0005](adr/0005-chon-tts.md) | Đã đo, chưa tích hợp (Phase 3) |
 | **Hình (Avatar)** | Live2D Cubism SDK for Web; dev dùng mẫu **Koharu** | WebGL trong WebView2 | — | [0006](adr/0006-license-live2d.md) | Chưa làm (Phase 5) |
 | **Trí nhớ** | SQLite + FTS5, người dùng duyệt | Rust (rusqlite) | — | SPEC §11 | Bảng hội thoại xong; memory ở Phase 4 |
@@ -27,21 +27,24 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 ```text
 ┌──────────────────────── Mori.exe (Tauri 2.12, WebView2) ─────────────────────────┐
 │ Frontend React 19 + TS 7 + Tailwind 4 (src/)                                      │
-│   App.tsx: chat, trạng thái model, nút Dừng, Chế độ nhanh, Cuộc trò chuyện mới    │
+│   App.tsx: chat, trạng thái model, nút Dừng, Chế độ nhanh, micro (giữ F2), chọn mic │
 │   api.ts : chỉ gọi lệnh Rust (invoke) + nhận Channel/event — KHÔNG tự gọi model   │
 │        │ invoke: init · send_message · stop_generation · set_fast_mode ·          │
-│        │         new_conversation          event: "llm-status"                    │
+│        │         new_conversation · list_mics · set_mic · start/stop/cancel_listening │
+│        │         event: "llm-status"                                              │
 │ ───────▼──────────────────────────────────────────────────────────────────────── │
 │ Rust core (src-tauri/src/)                                                        │
 │   lib.rs    lệnh IPC, kiểm tra đầu vào, slot 1-lượt-sinh, logging                 │
 │   llm.rs    supervisor llama-server + stream SSE + Job Object                     │
+│   audio.rs  cpal thu micro → RAM, resample 16 kHz, WAV trong RAM                  │
+│   stt.rs    whisper-server lazy (tắt sau 5 phút rảnh), request-path bí mật       │
 │   prompt.rs quy tắc an toàn (cố định) + personality + cắt lịch sử                 │
 │   db.rs     SQLite: conversations, messages, settings (migration user_version)    │
 └───────┬───────────────────────────────────────────────────────────────────────────┘
         │ HTTP 127.0.0.1:<cổng ngẫu nhiên>, Bearer <key ngẫu nhiên 128 bit>
-┌───────▼───────────────┐   (Phase 2)                 (Phase 3)
+┌───────▼───────────────┐   (Phase 2, đang chạy)      (Phase 3)
 │ llama-server.exe      │   whisper-server.exe        TTS worker Python
-│ Qwen3-8B / 4B, Vulkan │   turbo q5_0, Vulkan        ZeroTTS int8, JSON Lines stdio
+│ Qwen3-8B / 4B, Vulkan │   large-v3 q5_0, Vulkan     ZeroTTS int8, JSON Lines stdio
 └───────────────────────┘
 ```
 
@@ -57,6 +60,10 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 6. Bấm **Dừng** → `Notify` → drop stream (llama-server ngừng sinh). Câu trả lời dở dang vẫn được lưu.
 7. Lưu câu trả lời → gửi `Done`.
 
+**Giọng nói vào (Phase 2 — đang chạy):** giữ **F2** (hoặc bấm 🎙) → `start_listening`: cpal mở micro (thread riêng, PCM vào RAM, tối đa 120 s) **và** nạp whisper-server song song → thả phím → `stop_listening`: tắt micro (log `mic_stop_ms`), bỏ qua nếu < 0.3 s hoặc RMS < 0.003 (chặn Whisper bịa chữ khi im lặng), resample 16 kHz → WAV trong RAM → POST multipart `/inference` → **Tự gửi** bật (mặc định): gửi luôn như hội thoại; tắt: transcript vào ô nhập để sửa trước khi gửi. Giải mã `-bs 5` (như lúc đo WER). Audio bị drop ngay sau nhận dạng. Esc = hủy. Đo (giọng tổng hợp, file Phase 0): lần đầu 5.8 s (gồm nạp model), sau đó 0.93 s.
+
+**Giọng nói ra (Phase 3 — đang chạy):** mỗi `send_message` mở **lượt** mới (`tts.new_turn()`, dừng phát). Delta của LLM → `speech::Splitter` (cắt ở `. ? ! … : ;`/xuống dòng, câu > 220 ký tự cắt ở dấu phẩy; bỏ emoji, markdown, khối code) → `tts.speak(turn, câu)` → worker Python (ZeroTTS int8, JSON Lines, chunk PCM16 base64 48 kHz có `seq`) → `player` (cpal output, resample về tần số loa) → loa. Ngắt lời (`interrupt()`: nút Dừng/Ngắt, giữ F2, tắt "Mori nói") = notify LLM + tăng turn + `cancel` mọi request + xóa hàng đợi phát → audio lượt cũ bị bỏ ở `tts.rs`. Sự kiện `tts-level` (~30 Hz) cho lip-sync Phase 5. Đo: first audio P95 244 ms; worker nạp 7.3 s lúc mở app (khi bật "Mori nói"); RAM: llama-server 6.2 GB + TTS 1.1 GB (máy còn 6.4/31.4 GB, commit trống 1.9 GB).
+
 Luồng giọng nói đầy đủ (Phase 2–3, đã đo e2e bằng script): giữ phím nói → cpal 16 kHz → whisper-server → (luồng trên) → cắt câu đầu → ZeroTTS stream → rodio phát + RMS cho lip-sync.
 
 ---
@@ -69,6 +76,7 @@ Luồng giọng nói đầy đủ (Phase 2–3, đã đo e2e bằng script): gi�
 | llama-server chết | Restart, backoff 1-2-4-8-16 s; > 5 lần liên tiếp → **Error** (chờ người dùng đổi model) | Kill thủ công → Ready lại sau 6.3 s, PID + cổng mới |
 | Bật/tắt Chế độ nhanh | Kill + spawn model kia (không tính là lỗi) | — (người dùng thử) |
 | Thoát app bình thường | `shutdown()` → kill, chờ ≤ 3 s | — |
+| whisper-server | Spawn khi bắt đầu nghe; chết → spawn lại ở lượt sau; rảnh > 5 phút → kill (giải phóng RAM/VRAM) | Test `cargo test -- --ignored stt` |
 | **Mori crash / End Task** | Job Object `KILL_ON_JOB_CLOSE` → kernel tắt llama-server | Ép tắt `mori.exe` → llama-server chết theo |
 
 ---
@@ -79,11 +87,16 @@ Luồng giọng nói đầy đủ (Phase 2–3, đã đo e2e bằng script): gi�
 - **API key 128 bit** (`getrandom`) truyền qua env `LLAMA_API_KEY` (không lộ trên command line). Gọi không key → **401**.
 - `--no-webui --no-slots --offline`; **xóa mọi biến môi trường `LLAMA_*`** trước khi spawn (chặn bật tools chạy shell, log file, tải model qua env). Đã thử: đặt `LLAMA_ARG_LOG_FILE` → file không được tạo.
 - stdout/stderr của llama-server → null (log của nó có thể chứa prompt). Log của Mori chỉ ghi id + độ dài, **không nội dung**; giữ 14 ngày.
-- Tauri: chỉ `core:default`, **không** plugin shell/fs/http; CSP `default-src 'self'`, `connect-src ipc:`, `base-uri/form-action/object-src 'none'`. Model output hiển thị dạng text (không HTML).
+- Tauri: chỉ `core:event:allow-listen/unlisten` (lệnh app và `Channel` không cần permission), **không** plugin shell/fs/http; CSP `default-src 'self'`, `connect-src ipc:`, `base-uri/form-action/object-src 'none'`. Model output hiển thị dạng text (không HTML).
 - SQLite: mọi query có tham số; `foreign_keys`, `secure_delete`.
 - Quy tắc an toàn nằm trong code (`prompt.rs`), đứng trước `personality.md`.
+- **whisper-server** không có API key → mọi route nằm sau `--request-path /<128 bit ngẫu nhiên>` (kể cả `/load` nạp model tùy ý); gọi thiếu path → 404 (test). Path nằm trên command line (tiến trình cùng user đọc được — chấp nhận, cùng user thì đã đọc được bộ nhớ Mori). Không `--convert` → không file tạm; stdout/stderr → null; Job Object.
+- **Micro** chỉ mở giữa `start_listening` và `stop/cancel_listening`; audio chỉ trong RAM, không ghi đĩa; log chỉ ghi thời lượng + số ký tự transcript.
+- Khởi động gọi `WerAddExcludedApplication` cho `mori.exe` + `llama-server.exe` + `whisper-server.exe` (HKCU) → Windows Error Reporting không lấy dump (có thể chứa hội thoại). Loại trừ theo **tên**, lưu vĩnh viễn trong HKCU (cũng áp cho `llama-server.exe` của dự án khác); gỡ: `reg delete "HKCU\Software\Microsoft\Windows\Windows Error Reporting\ExcludedApplications" /v llama-server.exe /f` (tương tự `mori.exe`).
+- WebView2 (runtime Evergreen của Microsoft) tự mở 1–2 kết nối HTTPS ra Microsoft lúc khởi động; cờ `--disable-background-networking …` giảm còn 1, không chặn hết → [ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md), chặn bằng Fixed Version + firewall ở Phase 6. **App chưa đạt "0 kết nối ra ngoài"** (số 0 ở §1 là đo pipeline bằng script, không có WebView).
+- WebView2 có Crashpad riêng (`%LOCALAPPDATA%\dev.mori.companion\EBWebView\Crashpad`), không tắt được bằng `--disable-crash-reporter` (đã thử) → khởi động xóa `reports/` + `attachments/`. Còn hở: dump renderer có thể được upload trước lần khởi động sau, tùy cài đặt diagnostic data của Windows.
 
-Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Data`, kiểm SHA-256 binary/model lúc chạy, thu hẹp capability, chặn Windows Error Reporting.
+Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Data`, kiểm SHA-256 binary/model lúc chạy.
 
 ---
 
@@ -94,6 +107,12 @@ Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Dat
 | `src/App.tsx`, `src/api.ts`, `src/main.tsx`, `src/index.css` | Giao diện chat |
 | `src-tauri/src/lib.rs` | Lệnh IPC, state, logging, khởi động |
 | `src-tauri/src/llm.rs` | Supervisor llama-server, stream SSE, Job Object, test SSE/key/job |
+| `src-tauri/src/audio.rs` | Thu micro (cpal), resample, WAV, test |
+| `src-tauri/src/stt.rs` | whisper-server lazy + nhận dạng, test thật + đo WER (`--ignored`) |
+| `src-tauri/src/samples.rs` | Thu mẫu 100 câu (chỉ bản dev) |
+| `src-tauri/src/tts.rs`, `src-tauri/workers/tts_worker.py` | Worker TTS (Python ZeroTTS, JSON Lines), lượt/ngắt lời, test gate 50 lượt (`--ignored`) |
+| `src-tauri/src/player.rs` | Phát âm thanh (cpal output), mức RMS |
+| `src-tauri/src/speech.rs` | Cắt câu từ stream LLM, làm sạch văn bản đọc, test |
 | `src-tauri/src/prompt.rs` | SAFETY + dựng prompt, test cắt lịch sử |
 | `src-tauri/src/db.rs` | SQLite + migration, test |
 | `src-tauri/tauri.conf.json`, `capabilities/default.json` | Cửa sổ, CSP, quyền |
@@ -105,11 +124,21 @@ Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Dat
 
 | Lệnh | Vào | Ra |
 |---|---|---|
-| `init` | — | `{conversation_id, messages, status, fast_mode}` (mở hội thoại gần nhất) |
+| `init` | — | `{conversation_id, messages, status, fast_mode, mic}` (mở hội thoại gần nhất) |
 | `send_message` | `conversationId, text, onEvent: Channel` | tin nhắn user đã lưu; Channel nhận `{type:"delta",text}` … `{type:"done",message,stopped}` |
 | `stop_generation` | — | — |
 | `set_fast_mode` | `enabled: bool` | — (đổi model) |
 | `new_conversation` | — | id mới |
+| `list_mics` | — | `[{id, name}]` |
+| `set_mic` | `id: string \| null` (≤ 1024 ký tự; null = mặc định) | — |
+| `start_listening` | — | — (lỗi nếu không mở được micro) |
+| `stop_listening` | — | transcript (rỗng nếu im lặng) |
+| `cancel_listening` | — | — (bỏ audio) |
+| `set_voice_out` | `enabled: bool` | — (bật: nạp worker; tắt: ngắt lời) |
+| `set_tts_voice` | `voice` (phải là thư mục trong `voices/`) | — |
+| `list_samples`, `save_sample` | `file` (phải có trong manifest) | chỉ bản dev: danh sách câu / `{secs, heard}` |
+
+Sự kiện Rust → UI: `llm-status`, `tts-status` (`loading`/`ready`/`error`), `tts-playing` (bool), `tts-level` (RMS ~30 Hz). `init` trả thêm `voice_out`, `tts_voice`, `tts_voices`. `stop_generation` = ngắt lời (dừng sinh + dừng nói).
 | sự kiện `llm-status` | — | `{state: starting|ready|restarting|error|stopped, ...}` |
 
 ---
@@ -119,7 +148,7 @@ Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Dat
 ```text
 E:\Mori Data\
 ├── models\llm\        Qwen3-8B, Qwen3-4B-Instruct-2507 (+ Qwen3-4B, Qwen3.5-4B đã đo, không dùng)
-├── models\stt\        ggml-large-v3-turbo-q5_0.bin, ggml-small.bin
+├── models\stt\        ggml-large-v3-q5_0.bin (app), large-v3-turbo, phowhisper-large-q5_0, small; src (nguồn PhoWhisper)
 ├── models\tts\        zerotts-int8\ (dùng), hf\ (cache HF: ZeroTTS fp32, VieNeu, Korva)
 ├── runtime\llama.cpp\ b12284-cpu\, b12284-vulkan\ (app dùng bản vulkan)
 ├── runtime\whisper.cpp\ src-v1.9.5\, build-vulkan\, v1.9.5-vulkan\ (bản dùng)
