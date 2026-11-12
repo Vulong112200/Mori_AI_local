@@ -290,7 +290,16 @@ impl Llm {
             let Some(chunk) = chunk else {
                 return Ok((text, false));
             };
-            buf.extend_from_slice(&chunk.map_err(|e| format!("mất kết nối model: {e}"))?);
+            let chunk = match chunk {
+                Ok(c) => c,
+                // Đã có một phần câu trả lời → giữ lại như khi bấm Dừng, không bỏ phí.
+                Err(e) if !text.is_empty() => {
+                    warn!(error = %e, "mất kết nối model giữa chừng");
+                    return Ok((text, true));
+                }
+                Err(e) => return Err(format!("mất kết nối model: {e}")),
+            };
+            buf.extend_from_slice(&chunk);
             while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
                 let line: Vec<u8> = buf.drain(..=pos).collect();
                 match parse_sse_line(&String::from_utf8_lossy(&line)) {

@@ -83,14 +83,21 @@ export default function App() {
 
   async function startNew() {
     if (generating) return;
-    setConversationId(await api.newConversation());
-    setMessages([]);
+    try {
+      setConversationId(await api.newConversation());
+      setMessages([]);
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function toggleFast() {
     const next = !fastMode;
     setFastModeState(next);
-    await api.setFastMode(next).catch((e) => setError(String(e)));
+    await api.setFastMode(next).catch((e) => {
+      setFastModeState(!next); // backend không đổi → trả checkbox về như cũ
+      setError(String(e));
+    });
   }
 
   return (
