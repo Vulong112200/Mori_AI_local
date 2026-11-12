@@ -129,9 +129,9 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 | Backend | Rust | Chốt |
 | Avatar | Live2D Cubism SDK for Web (WebGL) | Chốt, rà license [P0] |
 | LLM runtime | llama.cpp (`llama-server`) | Chốt |
-| Tăng tốc LLM | CPU baseline; Vulkan / SYCL | [P0] |
+| Tăng tốc LLM | Vulkan (Arc 140T); CPU fallback | Chốt — ADR-0004 |
 | STT | whisper.cpp (`whisper-server`) | Chốt runtime; model [P0] |
-| TTS | KorvaTTS / VieNeu-TTS 0.5B / ZeroTTS | [P0] |
+| TTS | ZeroTTS int8 (dự phòng: VieNeu v3 Turbo) | Chốt — ADR-0005 |
 | Python (nếu cần) | 3.12 qua uv, venv riêng (thư viện TTS hỗ trợ 3.10–3.13, máy đang có 3.14) | Chốt |
 | Audio | cpal (thu), rodio (phát) | Chốt |
 | DB | SQLite + FTS5 (`rusqlite`) | Chốt |
@@ -143,6 +143,8 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 ## 5. LLM
 
 ### 5.1. Ứng viên
+
+**Đã chọn ([ADR-0004](adr/0004-chon-llm.md)): Qwen3-4B-Instruct-2507 Q4_K_M trên Vulkan** — TTFT 0.55 s lạnh / 0.25 s ấm, 23.7 tok/s. Đang thử thêm Qwen3-8B.
 
 | Model | Vai trò | Ghi chú |
 |---|---|---|
@@ -197,6 +199,14 @@ Không chèn timestamp hay dữ liệu thay đổi vào phần 1.
 
 Runtime: `whisper-server` (giữ model trong RAM khi đang trong phiên hội thoại, giải phóng khi nghỉ lâu).
 
+**Đề xuất ([ADR-0007](adr/0007-chon-stt.md)): large-v3-turbo q5_0 trên whisper.cpp v1.9.5 build Vulkan** — WER 7.8 %, 1.53 s TB (giọng tổng hợp). Bản dựng sẵn của whisper.cpp không có Vulkan → phải build:
+
+```text
+cmake -S src-v1.9.5 -B build-vulkan -G "Visual Studio 17 2022" -A x64 -DGGML_VULKAN=ON -DWHISPER_BUILD_TESTS=OFF
+cmake --build build-vulkan --config Release --target whisper-cli whisper-server
+```
+(cần MSVC Build Tools 2022 + C++ workload, Vulkan SDK, CMake; biến `VULKAN_SDK`)
+
 ### 6.2. Luồng
 
 ```text
@@ -218,15 +228,16 @@ Buffer bị xóa ngay sau khi nhận dạng xong.
 
 ## 7. Tổng hợp giọng nói (TTS)
 
-### 7.1. Ứng viên [P0]
+### 7.1. Engine đã chọn — [ADR-0005](adr/0005-chon-tts.md)
 
-| Engine | Repo | License | Ghi chú |
-|---|---|---|---|
-| KorvaTTS | [dogenthq/KorvaTTS](https://github.com/dogenthq/KorvaTTS) · `korvatts` 0.1.3 | Apache-2.0 | ONNX, CPU, 44.1 kHz, 10 giọng. **Không có streaming** (first-audio = thời gian tổng hợp cả câu). Offline qua `assets_dir` / `KORVATTS_ASSETS_DIR` |
-| VieNeu-TTS v3 | [pnnbao97/VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) · `vieneu` 3.8.x | **Kiểm tra** (v3 chưa rõ; v2 0.3B là CC BY-NC) | `mode="v3turbo"` (48 kHz) hoặc `"v3nano"` (24 kHz, ONNX CPU). Có `infer_stream`. Python 3.10–3.13, không cần eSpeak NG. Bản v2 (0.5B GGUF) đã deprecated |
-| ZeroTTS | [zeroweight-ai/ZeroTTS](https://github.com/zeroweight-ai/ZeroTTS) · `zerotts` 0.1.5 | MIT | ONNX, 48 kHz, 8 giọng, có `synthesize_stream`. Tự công bố chunk đầu ~70 ms. Weights fp32 ~900 MB, có tool tạo int8 local |
+**ZeroTTS 0.1.5** ([zeroweight-ai/ZeroTTS](https://github.com/zeroweight-ai/ZeroTTS), MIT), ONNX/CPU, streaming `synthesize_stream`, 48 kHz, giọng `maichi`.
 
-Các engine trên mặc định tải weights từ Hugging Face ở lần chạy đầu → phải tải trước (có duyệt), rồi trỏ đường dẫn local và chạy với `HF_HUB_OFFLINE=1`.
+- Model **int8** tạo local từ weights fp32 chính thức bằng `scripts/phase0/quantize_zerotts_int8.py` → `E:\Mori Data\models\tts\zerotts-int8\`.
+- `intra_op_num_threads=4`. Đo Phase 0: first audio 0.06 s, RTF 0.31, RAM 0.82 GB.
+- Dự phòng: VieNeu-TTS v3 Turbo int8 (`vieneu` 3.8.4, Apache-2.0) — first audio 0.39 s, RTF 0.74.
+- Đã loại: KorvaTTS (không streaming, quá chậm).
+
+Engine mặc định tải weights từ Hugging Face ở lần chạy đầu → phải tải trước (có duyệt), rồi trỏ đường dẫn local và chạy với `HF_HUB_OFFLINE=1`.
 
 **Bắt buộc trên Windows (đã kiểm chứng Phase 0):** đặt `HF_HUB_DISABLE_SYMLINKS=1` khi tải. Mặc định cache Hugging Face lưu file dạng symlink trỏ vào `blobs/`; ONNX Runtime ≥ 1.31 từ chối file external data (`*.data`) nằm khác thư mục với `.onnx` ("External data path escapes model directory") → ZeroTTS và VieNeu không nạp được. Biến môi trường chuẩn của worker TTS:
 
@@ -265,6 +276,10 @@ Không có trong MVP. Push-to-talk đã xác định đầu/cuối câu. Hoãn c
 
 ## 9. Avatar
 
+### 9.0. Nhân vật
+
+Mori là **nhân vật nữ, phong cách chibi/SD, dễ thương** (người dùng chọn 2026-11-12), giọng ZeroTTS `maichi` (hơi giọng miền Nam). Phát triển dùng model mẫu Koharu của Live2D; phát hành dùng nhân vật riêng — xem [ADR-0006](adr/0006-license-live2d.md).
+
 ### 9.1. Công nghệ
 
 Live2D Cubism SDK for Web, WebGL trong WebView2. Cubism Core là binary độc quyền: **không commit vào git**, tải thủ công theo hướng dẫn.
@@ -293,6 +308,8 @@ Chế độ hiển thị: **Companion** (chỉ nhân vật), **Chat** (nhân v�
 ### 9.5. License
 
 Rà điều khoản Cubism SDK, model mẫu, artwork trước khi phát hành. Model tải trên mạng không mặc định được phép phân phối lại.
+
+Tóm tắt và điều kiện: [ADR-0006](adr/0006-license-live2d.md). Điểm chính: Mori dùng nhân vật cố định, **không** cho người dùng nạp model Live2D tùy ý (nếu không sẽ thành "Expandable Application" — phải xin duyệt, không miễn phí).
 
 ---
 
@@ -506,8 +523,8 @@ Pagefile do Windows quản lý, hiện cấp 2 GB → giới hạn commit ~33 GB
 
 | Thành phần | Chạy trên |
 |---|---|
-| LLM | CPU; GPU nếu Phase 0 xác nhận |
-| STT | CPU; GPU nếu Phase 0 xác nhận |
+| LLM | GPU (Vulkan) — ADR-0004; CPU fallback |
+| STT | GPU (Vulkan) — ADR-0007 |
 | TTS | CPU |
 | Avatar | WebGL |
 | NPU | Không dùng trong MVP |

@@ -42,6 +42,7 @@ RAM trống 7.8 GB, commit trống 3.0 GB, giới hạn commit đã tự nới l
 |---|---|---|---|
 | Vulkan (b12284) | ✅ `Vulkan0: Intel Arc 140T (18307 MiB, 17538 MiB free)` | Không | pp512 ~888 t/s, tg128 ~23 t/s với Qwen3-4B Q4_K_M, ổn định. Lượt đầu cần biên dịch shader (~4 s) |
 | SYCL | Không thử | | Không cần: Vulkan đã đạt mục tiêu TTFT. Thử lại chỉ khi Vulkan gặp lỗi |
+| whisper.cpp Vulkan (v1.9.5 tự build) | ✅ | Không | turbo q5_0: 1.53 s TB cho câu ngắn (CPU: 10.3 s) |
 | OpenVINO | Chưa thử | | llama.cpp đã có bản dựng sẵn `win-openvino` (b12284) — hướng dự phòng / NPU sau MVP |
 
 ## 4. Nhiệt & ổn định

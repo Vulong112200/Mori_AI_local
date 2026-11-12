@@ -123,7 +123,8 @@ def main():
         print("CANH BAO: HF_HUB_OFFLINE != 1 -> engine co the tu tai weights.", file=sys.stderr)
 
     texts = [l.strip() for l in SENTENCES.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
-    tag = "".join(f"-{v}" for v in (a.mode, a.precision, a.steps and f"s{a.steps}", a.threads and f"t{a.threads}", a.voice) if v)
+    model_tag = a.model and Path(a.model).name  # phân biệt fp32 (mặc định) và bản local, vd zerotts-int8
+    tag = "".join(f"-{v}" for v in (model_tag, a.mode, a.precision, a.steps and f"s{a.steps}", a.threads and f"t{a.threads}", a.voice) if v)
     out = OUT / (a.engine + tag)
     out.mkdir(parents=True, exist_ok=True)
 

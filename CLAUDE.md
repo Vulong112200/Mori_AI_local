@@ -39,10 +39,11 @@ Viết tài liệu và trao đổi với người dùng bằng **tiếng Việt*
 ## Môi trường
 
 - Windows 11, shell chính PowerShell 5.1; Bash (Git Bash) có sẵn.
-- Có: Git, Node 24, Rust 1.99, Python 3.14, uv 0.13.7 (`C:\Users\vu\AppData\Local\Microsoft\WinGet\Links\uv.exe`). Chưa có: CMake.
+- Có: Git, Node 24, Rust 1.99, Python 3.14, uv 0.13.7 (`C:\Users\vu\AppData\Local\Microsoft\WinGet\Links\uv.exe`), CMake 4.4.4 (`C:\Program Files\CMake\bin`), Vulkan SDK 1.4.363 (`C:\VulkanSDK\1.4.363.0`), MSVC Build Tools 2022 (C++). Shell cũ có thể chưa có các PATH/biến này → đặt `VULKAN_SDK` và PATH thủ công.
 - TTS Python: venv `E:\Mori Data\runtime\python\tts-venv` (Python 3.12, korvatts 0.1.3, zerotts 0.1.5, vieneu 3.8.4). Khi chạy uv đặt `UV_PYTHON_INSTALL_DIR` và `UV_CACHE_DIR` vào `E:\Mori Data\runtime\python\`.
 - Biến môi trường TTS: `HF_HOME=E:\Mori Data\models\tts\hf`, `HF_HUB_DISABLE_SYMLINKS=1` (bắt buộc, xem SPEC §7.1), `HF_HUB_OFFLINE=1` khi chạy. Gọi Python với `-I -X utf8` (console cp1252).
-- llama.cpp: `E:\Mori Data\runtime\llama.cpp\b12284-{cpu,vulkan}\`. Model LLM: `E:\Mori Data\models\llm\`. Whisper: `E:\Mori Data\models\stt\`.
+- llama.cpp: `E:\Mori Data\runtime\llama.cpp\b12284-{cpu,vulkan}\`. Model LLM: `E:\Mori Data\models\llm\`.
+- whisper.cpp: tự build Vulkan ở `E:\Mori Data\runtime\whisper.cpp\v1.9.5-vulkan\` (nguồn `src-v1.9.5`). Model Whisper: `E:\Mori Data\models\stt\`. ZeroTTS int8: `E:\Mori Data\models\tts\zerotts-int8\`.
 - Data root: `E:\Mori Data\` (SPEC §16). Output thô của Phase 0: `scripts/phase0/out/` (gitignored).
 
 ## Lệnh

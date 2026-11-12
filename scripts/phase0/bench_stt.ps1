@@ -4,7 +4,7 @@
 # Ví dụ:
 #   powershell -ExecutionPolicy Bypass -File scripts/phase0/bench_stt.ps1 -Model "E:\Mori Data\models\stt\ggml-large-v3-turbo-q5_0.bin"
 param(
-    [string]$WhisperCli = 'E:\Memora Data\runtime\whisper.cpp\b5454\whisper-cli.exe',
+    [string]$WhisperCli = 'E:\Mori Data\runtime\whisper.cpp\v1.9.5-vulkan\whisper-cli.exe',
     [Parameter(Mandatory)][string]$Model,
     [int]$Threads = 8,
     [string]$Language = 'vi',

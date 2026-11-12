@@ -33,29 +33,31 @@
 - [x] Chạy bộ [llm_prompts.md](../tests/fixtures/llm_prompts.md) (AI-01..06) trên 3 model — `scripts/phase0/run_llm_prompts.py`; Claude chấm sơ bộ
 - [x] Đo TTFT cache lạnh/ấm qua `llama-server` (Qwen3-4B Vulkan: 0.60 s / 0.23 s)
 - [ ] **Người dùng** đọc `scripts/phase0/out/llm_answers_*.md` và chấm điểm tiếng Việt
-- [ ] 🔐 (Đề xuất) Thử một model ~8B trên Vulkan — cả 3 model 4B còn sai kiến thức
-- [~] `/adr` chọn model + backend LLM — [ADR-0004](adr/0004-chon-llm.md) **Đề xuất**, chờ chấp nhận
+- [x] 🔐 Thử Qwen3-8B Q4_K_M (Qwen chính thức, 4.68 GB, sha256 OK) trên Vulkan — TTFT 1.16 / 0.40 s, 11.8 tok/s, chất lượng 4* (tốt hơn 4B)
+- [ ] **Người dùng** chat thử Qwen3-8B vs Qwen3-4B-Instruct-2507 → quyết định có thay ADR-0004 không
+- [x] `/adr` chọn model + backend LLM — [ADR-0004](adr/0004-chon-llm.md) **Chấp nhận**
 
 ### 0.4. STT
 - [ ] (Hoãn, không chặn gate Phase 0) **Người dùng** thu âm giọng thật theo [stt_manifest.csv](../tests/fixtures/stt_manifest.csv): ~20 câu trước khi chốt ADR STT cuối cùng, đủ 100 câu trước gate Phase 2
 - [x] 🔐 Tải whisper small + large-v3-turbo q5_0 (ggml, sha256 OK)
 - [x] `/bench stt` sơ bộ trên **giọng tổng hợp** (18 câu VieNeu, 16 kHz) với whisper-cli b5454 (CPU) — turbo WER 8.4 % nhưng 10.3 s; small 2.3 s / WER 17 %
-- [ ] 🔐 Build whisper.cpp với Vulkan (cần CMake + Vulkan SDK + MSVC build tools; không có bản dựng sẵn) → bench turbo trên GPU
+- [x] 🔐 Build whisper.cpp v1.9.5 với Vulkan (CMake 4.4.4, Vulkan SDK 1.4.363, MSVC Build Tools 2022) → turbo trên GPU: **WER 7.8 %, 1.53 / 1.77 s**
 - [ ] `/bench stt` trên giọng thật
 - [ ] 🔐 Thử convert PhoWhisper → ggml, bench nếu được
-- [ ] `/adr` chọn model STT
+- [~] `/adr` chọn model STT — [ADR-0007](adr/0007-chon-stt.md) **Đề xuất**: turbo q5_0 + Vulkan
 
 ### 0.5. TTS
 - [x] Kiểm tra license VieNeu-TTS v3 — Apache-2.0 (cả Turbo và Nano)
 - [x] 🔐 uv venv Python 3.12 (`E:\Mori Data\runtime\python\tts-venv`) + korvatts 0.1.3, zerotts 0.1.5, vieneu 3.8.4; weights tải với `HF_HUB_DISABLE_SYMLINKS=1`
 - [x] `/bench tts` cho cả 3 engine (+ VieNeu Nano, Turbo int8, Korva 8 bước)
 - [x] **Người dùng** nghe: thích giọng **ZeroTTS**; VieNeu Turbo int8 không méo
-- [~] Tăng tốc ZeroTTS → RTF < 1: threads xong (6 luồng: RTF 1.05, first audio 0.32 s; 8 luồng tệ hơn). **Kế tiếp:** int8 (`quantize_dynamic`) → nếu chưa đủ, 🔐 thử `onnxruntime-directml` (GPU) trong venv riêng
+- [x] Tăng tốc ZeroTTS → RTF < 1: **int8, 4 luồng → first audio 0.06 s, RTF 0.31** (`scripts/phase0/quantize_zerotts_int8.py`; cài thêm gói `onnx` vào venv)
+- [x] **Người dùng** nghe ZeroTTS int8: ổn (hơi ngọng, giọng miền Nam vài chỗ, dễ thương)
 - [~] Kiểm tra chạy offline — đã chạy với `HF_HUB_OFFLINE=1`; còn thử khi **ngắt mạng thật**
-- [~] `/adr` chọn TTS — [ADR-0005](adr/0005-chon-tts.md) **Đề xuất**, chờ nghe
+- [x] `/adr` chọn TTS — [ADR-0005](adr/0005-chon-tts.md) **Chấp nhận: ZeroTTS int8**
 
 ### 0.6. License
-- [ ] Rà license Live2D Cubism SDK for Web + model mẫu → ghi ADR
+- [x] Rà license Live2D Cubism SDK for Web + model mẫu → [ADR-0006](adr/0006-license-live2d.md) **Chấp nhận** (nhân vật nữ chibi; dev dùng Koharu; không cho nạp model tùy ý; Cubism Core không commit)
 - [x] Ghi license từng model vào MODEL_EVALUATION.md (Qwen Apache-2.0, Whisper MIT, VieNeu v3 Apache-2.0, ZeroTTS MIT, Korva Apache-2.0)
 
 ### Gate Phase 0

@@ -1,5 +1,12 @@
 {
   "permissions": {
+    "allow": [
+      "PowerShell($deadline=\\(Get-Date\\).AddSeconds\\(90\\); do { try { $r = Invoke-WebRequest http://127.0.0.1:8080/health -UseBasicParsing -TimeoutSec 2; break } catch { Start-Sleep -Milliseconds 700 } } while \\(\\(Get-Date\\) -lt $deadline\\); \"health: $\\($r.StatusCode\\) $\\($r.Content\\)\"; $body = [Text.Encoding]::UTF8.GetBytes\\('{\"messages\":[{\"role\":\"user\",\"content\":\"Chào bạn, nói một câu ngắn.\"}],\"max_tokens\":40}'\\); $x = Invoke-RestMethod http://127.0.0.1:8080/v1/chat/completions -Method Post -ContentType 'application/json; charset=utf-8' -Body $body; \"ok, tokens: $\\($x.usage.completion_tokens\\), think_tag: $\\($x.choices[0].message.content -match '<think>'\\)\"; \\(Get-NetTCPConnection -LocalPort 8080 -State Listen\\).LocalAddress)",
+      "PowerShell($deadline=\\(Get-Date\\).AddSeconds\\(60\\); $ok=$false; do { try { $r = Invoke-WebRequest http://127.0.0.1:8765/health -UseBasicParsing -TimeoutSec 2; $ok=$true } catch { Start-Sleep -Milliseconds 700 } } until \\($ok -or \\(Get-Date\\) -gt $deadline\\); if \\(-not $ok\\) { 'server chua len'; return }; \"health: $\\($r.StatusCode\\)\"; $body = [Text.Encoding]::UTF8.GetBytes\\('{\"messages\":[{\"role\":\"user\",\"content\":\"Chào bạn, nói một câu ngắn.\"}],\"max_tokens\":60}'\\); $x = Invoke-RestMethod http://127.0.0.1:8765/v1/chat/completions -Method Post -ContentType 'application/json; charset=utf-8' -Body $body -TimeoutSec 60; \"tokens: $\\($x.usage.completion_tokens\\) | co <think>: $\\($x.choices[0].message.content -match '<think>'\\) | reasoning: $\\([bool]$x.choices[0].message.reasoning_content\\)\"; \\(Get-NetTCPConnection -LocalPort 8765 -State Listen\\).LocalAddress)"
+    ],
+    "deny": [
+      "Edit(//e/Memora Data/**)"
+    ],
     "ask": [
       "Bash(curl *)",
       "Bash(wget *)",
@@ -34,9 +41,6 @@
       "PowerShell(npx *)",
       "PowerShell(cargo install *)",
       "PowerShell(git push *)"
-    ],
-    "deny": [
-      "Edit(//e/Memora Data/**)"
     ]
   }
 }

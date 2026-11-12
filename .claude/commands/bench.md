@@ -8,7 +8,7 @@ Quy tắc: không tải model, không cài gói nếu người dùng chưa duy�
 
 Theo thành phần:
 - **llm**: `scripts/phase0/bench_llm.ps1 -LlamaDir <dir> -Model <gguf> -Backend <cpu|vulkan|sycl> [-Server]`. Runtime ở `E:\Mori Data\runtime\llama.cpp\`, model ở `E:\Mori Data\models\llm\`. Chạy CPU trước nếu chưa có dòng CPU cho model này. Với `-Server`: ghi TTFT lạnh/ấm (prompt_ms) và số token prompt được xử lý.
-- **stt**: `scripts/phase0/bench_stt.ps1 -Model "E:\Mori Data\models\stt\<ggml-small.bin|ggml-large-v3-turbo-q5_0.bin>"`. Mặc định dùng `E:\Memora Data\runtime\whisper.cpp\b5454\whisper-cli.exe` (chỉ chạy, không ghi vào đó). Cần file wav trong `tests/fixtures/audio/` theo `tests/fixtures/stt_manifest.csv`.
+- **stt**: `scripts/phase0/bench_stt.ps1 -Model "E:\Mori Data\models\stt\<ggml-small.bin|ggml-large-v3-turbo-q5_0.bin>"`. Mặc định dùng bản Vulkan tự build `E:\Mori Data\runtime\whisper.cpp\v1.9.5-vulkan\whisper-cli.exe`. Cần file wav trong `tests/fixtures/audio/` theo `tests/fixtures/stt_manifest.csv`.
 - **tts**: `"E:\Mori Data\runtime\python\tts-venv\Scripts\python.exe" -I -X utf8 scripts/phase0/bench_tts.py <korva|zerotts|vieneu> [--mode v3turbo|v3nano] [--voice V]`. Đặt `HF_HOME=E:\Mori Data\models\tts\hf`, `HF_HUB_DISABLE_SYMLINKS=1`, `HF_HUB_OFFLINE=1`. Sau khi chạy, nhắc người dùng nghe file wav trong `scripts/phase0/out/tts/` và cho điểm 1–5.
 
 Sau khi chạy:
