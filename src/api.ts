@@ -33,6 +33,7 @@ export interface InitState {
   tts_voices: string[];
   avatar_mode: AvatarMode;
   avatar_click_through: boolean;
+  proactive: boolean;
 }
 
 export interface Mic {
@@ -128,4 +129,20 @@ export const setAvatarMode = (mode: AvatarMode) => invoke<void>("set_avatar_mode
 export const setAvatarClickThrough = (enabled: boolean) => invoke<void>("set_avatar_click_through", { enabled });
 export const avatarReport = (r: { fps?: number; active?: boolean; error?: string }) =>
   invoke<void>("avatar_report", r).catch(() => {});
-export const avatarSnapshot = (png: string) => invoke<void>("avatar_snapshot", { png });
+export const avatarSnapshot = (png: string, name?: string) => invoke<void>("avatar_snapshot", { png, name });
+
+// Phase 7 (ADR-0013): phím gọi toàn cục Ctrl+Space+Q, cảm xúc + lời nói chủ động cho nhân vật, setting "Mori chủ động".
+export type Emotion = "neutral" | "happy" | "love" | "sad" | "surprised" | "shy" | "worried";
+export const onHotkeyPtt = (cb: (down: boolean) => void): Promise<UnlistenFn> =>
+  listen<boolean>("hotkey-ptt", (e) => cb(e.payload));
+export const onAvatarEmotion = (cb: (e: Emotion) => void): Promise<UnlistenFn> =>
+  listen<Emotion>("avatar-emotion", (e) => cb(e.payload));
+export const onAvatarSay = (cb: (text: string) => void): Promise<UnlistenFn> =>
+  listen<string>("avatar-say", (e) => cb(e.payload));
+/** Câu Mori tự nói (chào) đã lưu vào hội thoại `[conversationId, message]`. */
+export const onProactiveMessage = (cb: (conversationId: string, m: Message) => void): Promise<UnlistenFn> =>
+  listen<[string, Message]>("proactive-message", (e) => cb(e.payload[0], e.payload[1]));
+export const getProactive = () => invoke<boolean>("get_proactive");
+export const setProactive = (enabled: boolean) => invoke<void>("set_proactive", { enabled });
+export const onProactiveChanged = (cb: (enabled: boolean) => void): Promise<UnlistenFn> =>
+  listen<boolean>("proactive-changed", (e) => cb(e.payload));

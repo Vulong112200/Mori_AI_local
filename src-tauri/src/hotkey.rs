@@ -17,7 +17,9 @@ const VK_Q: u32 = 0x51;
 
 /// Quyết định cho một sự kiện phím: `Some(true/false)` = báo bắt đầu/kết thúc; `swallow` = không chuyển tiếp.
 fn on_key(vk: u32, down: bool) -> (Option<bool>, bool) {
-    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_SPACE};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        VK_CONTROL, VK_LCONTROL, VK_RCONTROL, VK_SPACE,
+    };
     match vk {
         v if v == VK_CONTROL as u32 || v == VK_LCONTROL as u32 || v == VK_RCONTROL as u32 => {
             CTRL.store(down, Ordering::SeqCst);
@@ -46,7 +48,8 @@ fn on_key(vk: u32, down: bool) -> (Option<bool>, bool) {
 #[cfg(windows)]
 unsafe extern "system" fn hook(code: i32, wparam: usize, lparam: isize) -> isize {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CallNextHookEx, HC_ACTION, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+        CallNextHookEx, HC_ACTION, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN,
+        WM_SYSKEYUP,
     };
     if code == HC_ACTION as i32 {
         let msg = wparam as u32;
@@ -80,7 +83,9 @@ pub fn start(app: AppHandle) {
         }
     });
     std::thread::spawn(|| {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, SetWindowsHookExW, MSG, WH_KEYBOARD_LL};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetMessageW, SetWindowsHookExW, MSG, WH_KEYBOARD_LL,
+        };
         // SAFETY: hook toàn cục cho thread này; hmod null + thread id 0 là cách dùng chuẩn của WH_KEYBOARD_LL.
         let h = unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), std::ptr::null_mut(), 0) };
         if h.is_null() {
@@ -106,12 +111,24 @@ mod tests {
         assert_eq!(on_key(VK_Q, false), (None, false));
         assert_eq!(on_key(ctrl, true), (None, false), "Ctrl không bị nuốt");
         assert_eq!(on_key(space, true), (None, false), "Space không bị nuốt");
-        assert_eq!(on_key(VK_Q, true), (Some(true), true), "Ctrl+Space+Q → bắt đầu, nuốt Q");
-        assert_eq!(on_key(VK_Q, true), (None, true), "Q lặp khi giữ: nuốt, không báo lại");
+        assert_eq!(
+            on_key(VK_Q, true),
+            (Some(true), true),
+            "Ctrl+Space+Q → bắt đầu, nuốt Q"
+        );
+        assert_eq!(
+            on_key(VK_Q, true),
+            (None, true),
+            "Q lặp khi giữ: nuốt, không báo lại"
+        );
         assert_eq!(on_key(space, false), (None, false));
         assert_eq!(on_key(VK_Q, false), (Some(false), true), "thả Q → kết thúc");
         assert_eq!(on_key(ctrl, false), (None, false));
-        assert_eq!(on_key(VK_Q, true), (None, false), "hết tổ hợp: Q bình thường");
+        assert_eq!(
+            on_key(VK_Q, true),
+            (None, false),
+            "hết tổ hợp: Q bình thường"
+        );
         assert_eq!(on_key(VK_Q, false), (None, false));
     }
 }

@@ -5,7 +5,6 @@ use crate::{avatar, context, emotion, prompt, speech, AppState, GenerationSlot};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::Notify;
 use tracing::{info, warn};
 
 /// Nhắc nghỉ sau ngần này phút dùng máy liên tục (rảnh ≥ 5 phút thì đếm lại).
@@ -20,9 +19,9 @@ pub fn enabled(st: &AppState) -> bool {
     st.db.setting("proactive").ok().flatten().as_deref() != Some("0") // mặc định bật (người dùng yêu cầu)
 }
 
-/// Giờ:phút theo giờ máy (không thêm crate thời gian).
+/// Giờ máy (không thêm crate thời gian).
 #[cfg(windows)]
-pub fn local_time() -> (u16, u16) {
+pub fn clock() -> prompt::Clock {
     use windows_sys::Win32::System::SystemInformation::GetLocalTime;
     // SAFETY: GetLocalTime chỉ ghi vào SYSTEMTIME ta cấp.
     let t = unsafe {
@@ -30,7 +29,14 @@ pub fn local_time() -> (u16, u16) {
         GetLocalTime(&mut t);
         t
     };
-    (t.wHour, t.wMinute)
+    prompt::Clock {
+        hour: t.wHour,
+        minute: t.wMinute,
+        weekday: t.wDayOfWeek,
+        day: t.wDay,
+        month: t.wMonth,
+        year: t.wYear,
+    }
 }
 
 /// Người dùng đã không chạm phím/chuột bao lâu (ms) — chỉ là một con số, không biết phím nào.
@@ -84,7 +90,13 @@ pub fn greet(app: AppHandle) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
-        let last: u64 = st.db.setting("last_greet").ok().flatten().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let last: u64 = st
+            .db
+            .setting("last_greet")
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
         if !enabled(&st) || now.saturating_sub(last) < GREET_GAP_SECS {
             return;
         }
@@ -94,7 +106,8 @@ pub fn greet(app: AppHandle) {
         let Ok(slot) = GenerationSlot::acquire(&st.generation) else {
             return; // người dùng đã bắt đầu nói chuyện
         };
-        let (h, m) = local_time();
+        let c = clock();
+        let (h, m) = (c.hour, c.minute);
         let Ok((system, mut history)) = context(&st.system, &st.db, &conv, "") else {
             return;
         };
@@ -110,7 +123,10 @@ pub fn greet(app: AppHandle) {
             ),
             created_at: String::new(),
         });
-        let result = st.llm.chat(&prompt::build(&system, &history), &slot.stop, |_| {}).await;
+        let result = st
+            .llm
+            .chat(&prompt::build(&system, &history), &slot.stop, |_| {})
+            .await;
         drop(slot);
         let text = match result {
             Ok((t, false)) if !t.trim().is_empty() => t.trim().to_string(),
@@ -139,7 +155,11 @@ pub fn start_break_reminder(app: AppHandle) {
         let mut active_min = 0u32;
         loop {
             tokio::time::sleep(Duration::from_secs(60)).await;
-            active_min = if idle_ms() >= IDLE_RESET_MS { 0 } else { active_min + 1 };
+            active_min = if idle_ms() >= IDLE_RESET_MS {
+                0
+            } else {
+                active_min + 1
+            };
             if active_min >= BREAK_AFTER_MIN && enabled(&app.state::<AppState>()) {
                 active_min = 0;
                 info!("nhắc nghỉ");
@@ -151,10 +171,6 @@ pub fn start_break_reminder(app: AppHandle) {
         }
     });
 }
-
-/// Để trống: tham chiếu Notify cho rõ kiểu dừng của lượt chào (GenerationSlot).
-#[allow(dead_code)]
-type Stop = Notify;
 
 #[cfg(test)]
 mod tests {

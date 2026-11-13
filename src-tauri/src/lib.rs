@@ -1,9 +1,12 @@
 mod audio;
 mod avatar;
 mod db;
+mod emotion;
+mod hotkey;
 mod integrity;
 mod llm;
 mod player;
+mod proactive;
 mod prompt;
 mod samples;
 mod speech;
@@ -141,6 +144,7 @@ struct InitState {
     tts_voices: Vec<String>,
     avatar_mode: String,
     avatar_click_through: bool,
+    proactive: bool,
 }
 
 #[tauri::command]
@@ -164,6 +168,7 @@ async fn init(state: State<'_, AppState>) -> Result<InitState, String> {
         tts_voices: state.tts_voices(),
         avatar_mode: avatar::mode(&state),
         avatar_click_through: avatar::click_through(&state),
+        proactive: proactive::enabled(&state),
     })
 }
 
@@ -429,6 +434,26 @@ fn set_voice_out(state: State<'_, AppState>, enabled: bool) -> Result<(), String
     Ok(())
 }
 
+/// "Mori chủ động" (ADR-0013): chào, nhắc nghỉ, bong bóng bâng quơ.
+#[tauri::command]
+fn get_proactive(state: State<'_, AppState>) -> bool {
+    proactive::enabled(&state)
+}
+
+#[tauri::command]
+fn set_proactive(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .db
+        .set_setting("proactive", if enabled { "1" } else { "0" })
+        .map_err(err)?;
+    let _ = app.emit_to(avatar::LABEL, "proactive-changed", enabled);
+    Ok(())
+}
+
 #[tauri::command]
 fn set_tts_voice(state: State<'_, AppState>, voice: String) -> Result<(), String> {
     if !state.tts_voices().contains(&voice) {
@@ -510,13 +535,24 @@ async fn send_message(
         .db
         .add_message(&conversation_id, "user", text)
         .map_err(err)?;
-    let (system, history) =
+    let (system, mut history) =
         context(&state.system, &state.db, &conversation_id, text).map_err(err)?;
+    if let Some(last) = history.last_mut() {
+        last.content = prompt::clock_note(&proactive::clock()) + &last.content;
+    }
     info!(conversation = %conversation_id, chars = text.chars().count(), "send_message"); // không log nội dung
 
+    // Cảm xúc của câu trả lời → biểu cảm nhân vật (chỉ nhãn sang cửa sổ avatar, không nội dung).
+    let (mut so_far, mut mood) = (String::new(), "neutral");
     let result = state
         .llm
         .chat(&prompt::build(&system, &history), &generation.stop, |d| {
+            so_far.push_str(d);
+            let m = emotion::of(&so_far);
+            if m != mood {
+                mood = m;
+                let _ = app.emit_to(avatar::LABEL, "avatar-emotion", m);
+            }
             if !ttft_logged {
                 ttft_logged = true;
                 info!(llm_ttft_ms = t0.elapsed().as_millis() as u64, "token đầu");
@@ -1061,13 +1097,15 @@ pub fn run() {
                 supervisor
                     .supervise(|s| {
                         let _ = handle.emit("llm-status", s);
-                        // Model vừa sẵn sàng (khởi động, tự khởi động lại, đổi model): nạp sẵn hội thoại gần nhất.
+                        // Model vừa sẵn sàng (khởi động, tự khởi động lại, đổi model): nạp sẵn hội thoại gần nhất,
+                        // và lần đầu trong phiên thì Mori chào (ADR-0013).
                         if let (Status::Ready { .. }, Some(st)) =
                             (s, handle.try_state::<AppState>())
                         {
                             if let Ok(Some(c)) = st.db.latest_conversation() {
                                 prefill_next(&st.llm, &st.system, &st.db, &c);
                             }
+                            proactive::greet(handle.clone());
                         }
                     })
                     .await
@@ -1090,6 +1128,8 @@ pub fn run() {
                 state.tts.warm(); // nạp giọng sẵn để câu trả lời đầu không phải chờ
             }
             avatar::setup(app.handle());
+            hotkey::start(app.handle().clone());
+            proactive::start_break_reminder(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1107,6 +1147,8 @@ pub fn run() {
             save_sample,
             set_voice_out,
             set_tts_voice,
+            get_proactive,
+            set_proactive,
             list_memories,
             star_message,
             update_memory,
@@ -1355,7 +1397,10 @@ mod tests {
         text: &str,
     ) -> (String, Message) {
         let user = db.add_message(conv, "user", text).unwrap();
-        let (sys, history) = context(system, db, conv, text).unwrap();
+        let (sys, mut history) = context(system, db, conv, text).unwrap();
+        // Như send_message: giờ máy ở đầu tin cuối, chỉ trong prompt.
+        let last = history.last_mut().unwrap();
+        last.content = prompt::clock_note(&proactive::clock()) + &last.content;
         let (reply, _) = llm
             .chat(&prompt::build(&sys, &history), &Notify::new(), |_| {})
             .await
@@ -1494,6 +1539,17 @@ mod tests {
                 r.contains("bạn") && !r.contains("mình thích"),
                 "trả lời về người dùng bằng \"bạn\""
             );
+
+            // Giờ máy (Phase 7): trả lời đúng giờ, không đọc lại dòng ghi chú của app.
+            let db = Db::in_memory().unwrap();
+            let c = db.create_conversation().unwrap();
+            let now = proactive::clock();
+            let r = ask(&llm, &system, &db, &c, "Mori ơi, bây giờ là mấy giờ rồi?").await;
+            assert!(
+                r.contains(&now.hour.to_string()) || r.contains(&(now.hour % 12).to_string()),
+                "không trả lời đúng giờ máy"
+            );
+            assert!(!r.contains("Giờ máy"), "đọc lại ghi chú của app");
 
             // AI-08: đoạn dài có mật mã ở giữa, rồi hỏi.
             let mut long = String::new();

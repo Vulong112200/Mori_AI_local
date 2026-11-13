@@ -4,10 +4,18 @@
 /// "happy" | "love" | "sad" | "surprised" | "shy" | "worried" | "neutral".
 pub fn of(text: &str) -> &'static str {
     let t = text.to_lowercase();
-    let has = |chars: &str, words: &[&str]| t.chars().any(|c| chars.contains(c)) || words.iter().any(|w| t.contains(w));
-    if has("😢😭🥺😞😔💔", &["buồn quá", "tiếc quá", "thương bạn", "tội nghiệp"]) {
+    let has = |chars: &str, words: &[&str]| {
+        t.chars().any(|c| chars.contains(c)) || words.iter().any(|w| t.contains(w))
+    };
+    if has(
+        "😢😭🥺😞😔💔",
+        &["buồn quá", "tiếc quá", "thương bạn", "tội nghiệp"],
+    ) {
         "sad"
-    } else if has("😮😲😯🤯😱", &["trời ơi", "ôi chao", "thật á", "bất ngờ", "wow"]) {
+    } else if has(
+        "😮😲😯🤯😱",
+        &["trời ơi", "ôi chao", "thật á", "bất ngờ", "wow"],
+    ) {
         "surprised"
     } else if has("🥰😍❤💕💖😘", &["yêu bạn", "thích bạn", "quý bạn"]) {
         "love"
@@ -15,7 +23,18 @@ pub fn of(text: &str) -> &'static str {
         "shy"
     } else if has("😟😥😓😰🤔", &["lo quá", "cẩn thận", "đừng lo", "hmm"]) {
         "worried"
-    } else if has("😊😄😆😁🎉✨😉😋🥳🤗👍", &["vui quá", "tuyệt", "hay quá", "haha", "hihi", "giỏi quá", "chúc mừng"]) {
+    } else if has(
+        "😊😄😆😁🎉✨😉😋🥳🤗👍",
+        &[
+            "vui quá",
+            "tuyệt",
+            "hay quá",
+            "haha",
+            "hihi",
+            "giỏi quá",
+            "chúc mừng",
+        ],
+    ) {
         "happy"
     } else {
         "neutral"

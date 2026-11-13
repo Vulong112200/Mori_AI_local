@@ -40,6 +40,7 @@ export default function App() {
   const [ttsVoices, setTtsVoices] = useState<string[]>([]);
   const [avatarMode, setAvatarModeState] = useState<api.AvatarMode>("chat");
   const [clickThrough, setClickThrough] = useState(false);
+  const [proactive, setProactiveState] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [ttsStatus, setTtsStatus] = useState<"loading" | "ready" | "error" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,8 @@ export default function App() {
   // Ghi nhớ vừa lưu (để Hoàn tác).
   const [remembered, setRemembered] = useState<api.Memory[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const convRef = useRef<string | null>(null);
+  convRef.current = conversationId;
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const [mics, setMics] = useState<Mic[]>([]);
   const [micId, setMicId] = useState<string | null>(null);
@@ -92,6 +95,12 @@ export default function App() {
     api.onTtsStatus(setTtsStatus).then((u) => unlisten.push(u));
     api.onMemorySaved(showRemembered).then((u) => unlisten.push(u));
     api.onAvatarMode(setAvatarModeState).then((u) => unlisten.push(u));
+    // Mori tự chào (ADR-0013): câu chào đã lưu vào hội thoại gần nhất → hiện nếu đang mở đúng hội thoại đó.
+    api
+      .onProactiveMessage((conv, m) => {
+        if (conv === convRef.current) setMessages((all) => (all.some((x) => x.id === m.id) ? all : [...all, m]));
+      })
+      .then((u) => unlisten.push(u));
     api
       .init()
       .then((s) => {
@@ -105,6 +114,7 @@ export default function App() {
         setTtsVoices(s.tts_voices);
         setAvatarModeState(s.avatar_mode);
         setClickThrough(s.avatar_click_through);
+        setProactiveState(s.proactive);
       })
       .catch((e) => setError(String(e)));
     api.listMics().then(setMics, () => {});
@@ -142,8 +152,35 @@ export default function App() {
     // Giữ F2 trong cửa sổ avatar (kể cả khi khung chat đang ẩn).
     let unlistenPtt: (() => void) | undefined;
     api.onAvatarPtt((d) => (d ? startMic() : stopMic())).then((u) => (unlistenPtt = u));
+    // Phím gọi toàn cục Ctrl+Space+Q (ADR-0013): giữ = nói, thả = gửi; bấm nhanh (< 400 ms) = bật nghe, bấm lại = gửi.
+    let downAt = 0;
+    let toggled = false; // đang nghe theo kiểu bấm nhanh
+    let skipUp = false; // lần thả phím của cú bấm dùng để dừng
+    let unlistenHotkey: (() => void) | undefined;
+    api
+      .onHotkeyPtt((d) => {
+        if (d) {
+          if (toggled && micRef.current === "listening") {
+            toggled = false;
+            skipUp = true;
+            stopMic();
+            return;
+          }
+          toggled = false;
+          downAt = Date.now();
+          startMic();
+        } else if (skipUp) {
+          skipUp = false;
+        } else if (Date.now() - downAt < 400 && micRef.current === "listening") {
+          toggled = true;
+        } else {
+          stopMic();
+        }
+      })
+      .then((u) => (unlistenHotkey = u));
     return () => {
       unlistenPtt?.();
+      unlistenHotkey?.();
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
@@ -301,6 +338,15 @@ export default function App() {
     });
   }
 
+  async function toggleProactive() {
+    const next = !proactive;
+    setProactiveState(next);
+    await api.setProactive(next).catch((e) => {
+      setProactiveState(!next);
+      setError(String(e));
+    });
+  }
+
   async function toggleFast() {
     const next = !fastMode;
     setFastModeState(next);
@@ -371,6 +417,13 @@ export default function App() {
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600" title="Nói xong gửi luôn, không cần bấm Gửi">
           <input type="checkbox" checked={autoSend} onChange={(e) => setAutoSend(e.target.checked)} className="accent-pink-500" />
           Tự gửi
+        </label>
+        <label
+          className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600"
+          title="Mori tự chào khi bạn mở máy, nhắc nghỉ khi ngồi lâu, thỉnh thoảng nói bâng quơ"
+        >
+          <input type="checkbox" checked={proactive} onChange={toggleProactive} className="accent-pink-500" />
+          Mori chủ động
         </label>
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600" title="Dùng model nhỏ, trả lời nhanh hơn">
           <input type="checkbox" checked={fastMode} onChange={toggleFast} disabled={generating} className="accent-pink-500" />
@@ -531,11 +584,11 @@ export default function App() {
           onKeyDown={onKeyDown}
           placeholder={
             micState === "listening"
-              ? "Đang nghe… thả F2 hoặc bấm micro để dừng, Esc để hủy"
+              ? "Đang nghe… thả phím (F2 / Ctrl+Space+Q) hoặc bấm micro để dừng, Esc để hủy"
               : micState === "transcribing"
                 ? "Đang nhận dạng giọng nói…"
                 : ready
-                  ? "Nhắn cho Mori… (Enter gửi, giữ F2 để nói)"
+                  ? "Nhắn cho Mori… (Enter gửi, giữ F2 hoặc Ctrl+Space+Q để nói)"
                   : "Đợi Mori sẵn sàng…"
           }
           className="flex-1 resize-none rounded-xl border border-pink-200 bg-white px-3 py-2 text-sm outline-none focus:border-pink-400"

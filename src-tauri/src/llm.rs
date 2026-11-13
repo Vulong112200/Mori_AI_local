@@ -218,6 +218,18 @@ impl Llm {
             // 1 slot: lượt bị ngắt chưa hủy xong thì request làm ấm sang slot trống → xử lý lại cả lịch sử
             // và lượt sau vẫn chậm (đo: TTFT 3.3 s). 1 slot → xếp hàng, dùng đúng cache (0.3 s).
             .args(["-np", "1"])
+            // ADR-0014: KV cache q8_0 (cần flash-attn) −0.5 GB RAM, TTFT không đổi; cache prompt trên RAM ≤ 1 GB
+            // (mặc định 8 GB) — đủ khôi phục hội thoại sau việc nền chen slot.
+            .args([
+                "-fa",
+                "on",
+                "-ctk",
+                "q8_0",
+                "-ctv",
+                "q8_0",
+                "--cache-ram",
+                "1024",
+            ])
             .args(["--no-webui", "--no-slots", "--offline"])
             .stdin(Stdio::null())
             .stdout(Stdio::null())

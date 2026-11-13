@@ -297,6 +297,8 @@ Live2D Cubism SDK for Web, WebGL trong WebView2. Cubism Core là binary độc q
 | Speaking | Miệng theo biên độ RMS |
 | Happy / Confused | Cười / nghiêng đầu (nếu model hỗ trợ) |
 | Sleeping | Nhắm mắt, giảm animation |
+| Cảm xúc câu trả lời | happy / love / sad / surprised / shy / worried — biểu cảm + động tác theo nhãn cảm xúc của câu trả lời (chỉ nhãn sang cửa sổ avatar, không nội dung) |
+| Sinh hoạt theo giờ máy | Ngủ, thức dậy, ăn, làm việc, học, nghe nhạc, chơi, buồn ngủ — động tác + đạo cụ vẽ chồng + bong bóng chữ ([ADR-0013](adr/0013-mori-chu-dong-phim-tat.md)); đang hội thoại thì tạm dừng |
 
 ### 9.3. Lip-sync
 
@@ -325,7 +327,7 @@ Tên: **Mori**. Thân thiện, thông minh, chu đáo, hơi hài hước, tinh t
 - Tiếng Việt tự nhiên; nghiêm túc khi làm việc quan trọng.
 - Không nịnh; không giả vờ biết; lịch sự phản biện khi người dùng sai.
 - Hỏi lại khi chưa rõ.
-- Không tự bắt chuyện khi chưa được phép.
+- Chủ động vừa phải ([ADR-0013](adr/0013-mori-chu-dong-phim-tat.md), tắt được bằng "Mori chủ động"): chào theo giờ khi mở máy (gọi tên, hỏi thăm điều đã nhớ), nhắc nghỉ khi dùng máy liên tục lâu, bong bóng chữ bâng quơ theo hoạt cảnh. Không chen ngang khi đang trả lời/đang nói.
 - Câu trả lời khi nói bằng giọng NÊN ngắn gọn (vài câu), vì người nghe không lướt được như đọc.
 
 Ví dụ:
@@ -489,6 +491,7 @@ Các `type` khác: `cancel`, `health`, `shutdown`.
 
 - Mọi service bind `127.0.0.1`; không nhận kết nối LAN.
 - Micro: trạng thái hiện rõ, Stop dừng thu ngay.
+- Phím gọi toàn cục Ctrl+Space+Q (ADR-0013): low-level keyboard hook chỉ xét 3 phím Ctrl/Space/Q, không lưu/không log/không gửi phím nào, chỉ nuốt Q khi đang giữ Ctrl+Space. Thời gian rảnh (nhắc nghỉ) lấy bằng `GetLastInputInfo` — chỉ là một con số.
 - Model file kiểm SHA-256 theo manifest; worker Python chạy với `HF_HUB_OFFLINE=1`.
 - Tauri: CSP chặt, không bật plugin `shell`, capability tối thiểu.
 - AI không chạy lệnh shell, không truy cập file tự do.

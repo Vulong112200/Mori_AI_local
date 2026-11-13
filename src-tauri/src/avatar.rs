@@ -203,11 +203,23 @@ pub fn avatar_report(fps: Option<f32>, active: Option<bool>, error: Option<Strin
 }
 
 /// Bản dev: lưu một khung hình của nhân vật (chỉ canvas WebGL, không chụp màn hình) để kiểm tra hiển thị.
+/// `name` (chữ thường/số/`_`, ≤ 24 ký tự) → `avatar_snapshot_<name>.png` để chụp từng biểu cảm/hoạt cảnh (Phase 7).
 #[tauri::command]
-pub fn avatar_snapshot(png: String) -> Result<(), String> {
+pub fn avatar_snapshot(png: String, name: Option<String>) -> Result<(), String> {
     if !cfg!(debug_assertions) {
         return Err(crate::DEV_ONLY.into());
     }
+    let file = match name {
+        None => "avatar_snapshot.png".to_string(),
+        Some(n)
+            if (1..=24).contains(&n.len())
+                && n.bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') =>
+        {
+            format!("avatar_snapshot_{n}.png")
+        }
+        Some(_) => return Err("tên ảnh không hợp lệ".into()),
+    };
     let b64 = png
         .strip_prefix("data:image/png;base64,")
         .filter(|b| b.len() <= 16_000_000)
@@ -215,7 +227,7 @@ pub fn avatar_snapshot(png: String) -> Result<(), String> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(b64)
         .map_err(err)?;
-    let path = data_dir().join("logs").join("avatar_snapshot.png");
+    let path = data_dir().join("logs").join(file);
     std::fs::write(&path, bytes).map_err(err)?;
     info!("đã lưu ảnh avatar");
     Ok(())
