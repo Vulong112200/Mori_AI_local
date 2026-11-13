@@ -34,4 +34,5 @@ Nguồn: live2d.com/en/sdk/license/, Live2D Proprietary Software License Agreeme
 ## Hệ quả
 - Cập nhật SPEC §9.1, §9.5.
 - Thêm `**/live2dcubismcore*` (đã có trong `.gitignore`).
-- Chưa đọc: trang Expandable Applications chi tiết, danh sách `RedistributableFiles.txt`, hướng dẫn thương hiệu — đọc ở Phase 5 trước khi tích hợp.
+- Chưa đọc: trang Expandable Applications chi tiết, hướng dẫn thương hiệu — đọc trước khi phát hành.
+- Phase 5 (2026-11-13): tải Cubism SDK for Web 5-r.5 + mẫu Koharu & Haruto (người dùng duyệt). `RedistributableFiles.txt` chỉ cho phân phối lại `live2dcubismcore.d.ts/.js/.min.js` → đóng gói kèm app được, **không commit**. Framework + code mẫu: Live2D Open Software License. Koharu là **model riêng** (`koharu/runtime/`, Cubism 3, tham số `PARAM_*`), không chung file với Haruto. Mọi file Live2D chép vào thư mục gitignore bằng `scripts/setup_avatar.mjs`. Dòng bản quyền mẫu hiển thị khi rê chuột lên nhân vật.

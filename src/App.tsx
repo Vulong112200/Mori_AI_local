@@ -38,6 +38,8 @@ export default function App() {
   const [voiceOut, setVoiceOutState] = useState(true);
   const [ttsVoice, setTtsVoiceState] = useState("maichi");
   const [ttsVoices, setTtsVoices] = useState<string[]>([]);
+  const [avatarMode, setAvatarModeState] = useState<api.AvatarMode>("chat");
+  const [clickThrough, setClickThrough] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [ttsStatus, setTtsStatus] = useState<"loading" | "ready" | "error" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,7 @@ export default function App() {
     api.onTtsPlaying(setSpeaking).then((u) => unlisten.push(u));
     api.onTtsStatus(setTtsStatus).then((u) => unlisten.push(u));
     api.onMemorySaved(showRemembered).then((u) => unlisten.push(u));
+    api.onAvatarMode(setAvatarModeState).then((u) => unlisten.push(u));
     api
       .init()
       .then((s) => {
@@ -99,6 +102,8 @@ export default function App() {
         setVoiceOutState(s.voice_out);
         setTtsVoiceState(s.tts_voice);
         setTtsVoices(s.tts_voices);
+        setAvatarModeState(s.avatar_mode);
+        setClickThrough(s.avatar_click_through);
       })
       .catch((e) => setError(String(e)));
     api.listMics().then(setMics, () => {});
@@ -133,7 +138,11 @@ export default function App() {
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
+    // Giữ F2 trong cửa sổ avatar (kể cả khi khung chat đang ẩn).
+    let unlistenPtt: (() => void) | undefined;
+    api.onAvatarPtt((d) => (d ? startMic() : stopMic())).then((u) => (unlistenPtt = u));
     return () => {
+      unlistenPtt?.();
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
@@ -276,6 +285,21 @@ export default function App() {
     }
   }
 
+  async function chooseAvatarMode(m: api.AvatarMode) {
+    setAvatarModeState(m);
+    if (m === "companion") setClickThrough(false); // backend tự tắt: chỉ còn nhân vật để bấm
+    await api.setAvatarMode(m).catch((e) => setError(String(e)));
+  }
+
+  async function toggleClickThrough() {
+    const next = !clickThrough;
+    setClickThrough(next);
+    await api.setAvatarClickThrough(next).catch((e) => {
+      setClickThrough(!next);
+      setError(String(e));
+    });
+  }
+
   async function toggleFast() {
     const next = !fastMode;
     setFastModeState(next);
@@ -373,6 +397,26 @@ export default function App() {
             </span>
           )}
         </button>
+        <label htmlFor="avatar-mode" className="sr-only">
+          Hiển thị nhân vật
+        </label>
+        <select
+          id="avatar-mode"
+          value={avatarMode}
+          onChange={(e) => chooseAvatarMode(e.target.value as api.AvatarMode)}
+          title="Đồng hành: chỉ nhân vật (nhấp đúp vào Mori để mở lại chat) · Trò chuyện: cả hai · Tập trung: ẩn nhân vật"
+          className="rounded-lg border border-pink-100 bg-white px-1.5 py-1 text-xs text-slate-600"
+        >
+          <option value="chat">Mori + chat</option>
+          <option value="companion">Chỉ Mori</option>
+          <option value="focus">Ẩn Mori</option>
+        </select>
+        {avatarMode === "chat" && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600" title="Chuột bấm xuyên qua nhân vật (tắt ở đây để kéo lại được)">
+            <input type="checkbox" checked={clickThrough} onChange={toggleClickThrough} className="accent-pink-500" />
+            Xuyên chuột
+          </label>
+        )}
         <button
           onClick={startNew}
           disabled={generating}
@@ -497,6 +541,9 @@ export default function App() {
           </button>
         )}
       </form>
+      <p className="bg-white/70 pb-1 text-center text-[10px] text-slate-400">
+        Nhân vật: mẫu Koharu (Live2D) · This content uses sample data owned and copyrighted by Live2D Inc.
+      </p>
       {showMemories && <Memories onClose={() => setShowMemories(false)} onCount={setProposed} />}
     </div>
   );

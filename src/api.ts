@@ -31,6 +31,8 @@ export interface InitState {
   voice_out: boolean;
   tts_voice: string;
   tts_voices: string[];
+  avatar_mode: AvatarMode;
+  avatar_click_through: boolean;
 }
 
 export interface Mic {
@@ -103,3 +105,21 @@ export const backupDb = () => invoke<string>("backup_db");
 export const listBackups = () => invoke<string[]>("list_backups");
 /** Trả tên bản sao lưu tự tạo ngay trước khi khôi phục. */
 export const restoreBackup = (name: string) => invoke<string>("restore_backup", { name });
+
+// Avatar (Phase 5). Trạng thái do Rust phát: nghe / nghĩ / rảnh; "nói" lấy từ tts-playing.
+export type AvatarMode = "companion" | "chat" | "focus";
+export const onAvatarState = (cb: (s: "idle" | "listening" | "thinking") => void): Promise<UnlistenFn> =>
+  listen<"idle" | "listening" | "thinking">("avatar-state", (e) => cb(e.payload));
+export const onTtsLevel = (cb: (level: number) => void): Promise<UnlistenFn> =>
+  listen<number>("tts-level", (e) => cb(e.payload));
+export const onAvatarMode = (cb: (m: AvatarMode) => void): Promise<UnlistenFn> =>
+  listen<AvatarMode>("avatar-mode", (e) => cb(e.payload));
+export const onAvatarPtt = (cb: (down: boolean) => void): Promise<UnlistenFn> =>
+  listen<boolean>("avatar-ptt", (e) => cb(e.payload));
+export const avatarDrag = () => invoke<void>("avatar_drag");
+export const avatarPtt = (down: boolean) => invoke<void>("avatar_ptt", { down });
+export const setAvatarMode = (mode: AvatarMode) => invoke<void>("set_avatar_mode", { mode });
+export const setAvatarClickThrough = (enabled: boolean) => invoke<void>("set_avatar_click_through", { enabled });
+export const avatarReport = (r: { fps?: number; active?: boolean; error?: string }) =>
+  invoke<void>("avatar_report", r).catch(() => {});
+export const avatarSnapshot = (png: string) => invoke<void>("avatar_snapshot", { png });

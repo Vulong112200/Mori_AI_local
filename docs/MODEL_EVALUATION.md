@@ -140,6 +140,18 @@ Sửa: cửa sổ nhảy khối 12 tin, làm ấm prompt sau mỗi lượt + khi
 
 Câu nói dài (7–11 s audio) trong app: STT 2.7–2.8 s → e2e có thể > 4 s; giới hạn của large-v3 (ADR-0011), không thuộc phạm vi sửa ở đây.
 
+### 5.2. Avatar Live2D và độ trễ (gate Phase 5, 2026-11-13)
+
+A/B bằng `cargo test e2e_gate -- --ignored` (20 câu giọng thật) trong khi app chạy song song: **A** nhân vật ẩn (chế độ "Ẩn Mori"), **B** nhân vật hiện và vẽ liên tục 30 FPS (`VITE_AVATAR_BENCH=1`, như lúc đang nghe/nghĩ/nói). Koharu (Cubism SDK for Web 5-r.5), WebGL2 trên Arc 140T, cửa sổ 260×360.
+
+| | A: ẩn | B: 30 FPS liên tục | Chênh |
+|---|---|---|---|
+| TTFT TB / P95 | 463 / 512 ms | 467 / 504 ms | **+0.9 % / −1.6 %** ✅ (ngưỡng ≤ 10 %) |
+| FPS nhân vật khi model đang chạy | — | **30.0** (40/40 lần đo 5 s) ✅ | |
+| e2e TB | 3401 ms | 3494 ms | +2.7 % |
+
+Lưu ý: lúc đo có **hai bộ model chạy cùng lúc** (app: 8B + Whisper + TTS, và bộ của test) nên e2e cao hơn số đo một bộ ở §5.1 (P95 câu ngắn 3.87–4.02 s so với 3.45–3.72 s) — đó là giới hạn của cách đo, không phải do avatar (chênh A/B chỉ +2.7 %). Khi rảnh nhân vật vẽ 15 FPS (đo 13–15). Người dùng thử trong app: 1 lượt, TTFT 430 ms, FPS 29.4 khi hoạt động.
+
 ## 6. Kết luận (sơ bộ, 2026-11-12)
 
 - **LLM:** [ADR-0008](adr/0008-llm-8b-mac-dinh.md): **Qwen3-8B mặc định**, Qwen3-4B-Instruct-2507 làm chế độ nhanh (thay ADR-0004). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → người dùng chọn 8B mặc định.

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Quyền tối thiểu: chỉ nghe/bỏ nghe sự kiện (llm-status). Lệnh app và Channel không cần permission. Không shell, không fs, không http.",
-  "windows": ["main"],
+  "description": "Quyền tối thiểu: chỉ nghe/bỏ nghe sự kiện (llm-status, tts-*, avatar-*). Lệnh app và Channel không cần permission. Không shell, không fs, không http.",
+  "windows": ["main", "avatar"],
   "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
 }

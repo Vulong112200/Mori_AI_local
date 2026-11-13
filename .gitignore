@@ -25,3 +25,7 @@ __pycache__/
 scripts/phase0/out/
 # Tauri
 src-tauri/gen/
+# Live2D Framework/model chép từ E:\Mori Data\avatar (scripts/setup_avatar.mjs) — không commit (ADR-0006)
+src/live2d/framework/
+public/live2d/
+public/avatar/

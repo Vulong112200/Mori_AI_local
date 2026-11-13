@@ -3,15 +3,15 @@
 > Nguồn sự thật duy nhất cho tiến độ. Tick `[x]` khi xong. Cập nhật dòng **Trạng thái** của phase. Gate chỉ được tick qua `/gate <n>`.
 > Ký hiệu: `[ ]` chưa làm · `[~]` đang làm · `[x]` xong · `[!]` bị chặn (ghi lý do) · 🔐 cần người dùng duyệt (tải/cài).
 
-**Phase hiện tại:** 5
+**Phase hiện tại:** 6
 **Cập nhật:** 2026-11-13
 
 ## Bàn giao (đọc trước khi làm tiếp)
 
-- **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào), Phase 3 (giọng nói ra, e2e P95 3.45–3.72 s), Phase 4 (Mori tự ghi nhớ — ADR-0012, tóm tắt, xóa có kiểm chứng, sao lưu).
-- **Đang làm:** Phase 5 (avatar Live2D). Cần **người dùng tự tải** (trang Live2D bắt tick đồng ý giấy phép): Cubism SDK for Web (https://www.live2d.com/en/sdk/download/web/) + mẫu Koharu & Haruto (https://www.live2d.com/en/learn/sample/koharu-haruto/), giải nén vào `E:\Mori Data\avatar\`. Không commit Cubism Core/model.
+- **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào), Phase 3 (giọng nói ra, e2e P95 3.45–3.72 s), Phase 4 (Mori tự ghi nhớ — ADR-0012), Phase 5 (avatar Live2D Koharu: cửa sổ trong suốt, nhép miệng, trạng thái, 3 chế độ; 30 FPS, TTFT +0.9 %).
+- **Đang làm:** Phase 6 (ổn định MVP): benchmark đủ, kiểm offline/privacy, khôi phục lỗi (crash worker, đổi thiết bị audio, sleep/resume), màn hình "sẵn sàng offline", audit, đánh giá chủ quan. Việc 🔐 cần người dùng: WebView2 Fixed Version + luật firewall (admin), ACL `E:\Mori Data`. Máy mới/clone mới: `node scripts/setup_avatar.mjs` trước `npm run tauri dev`.
 - **Độ trễ (2026-11-13):** cửa sổ lịch sử nhảy khối 12 tin + làm ấm prompt (sau mỗi lượt và khi model sẵn sàng) + llama-server `-np 1` + câu đầu cắt ở dấu phẩy/≤ 50 ký tự. Tóm tắt hội thoại (Phase 4) phải giữ prefix ổn định như vậy.
-- **Phase 0–4 đã qua gate.** Ngoại lệ còn mở: WebView2 tự kết nối ra Microsoft (ADR-0010, xử lý Phase 6).
+- **Phase 0–5 đã qua gate.** Ngoại lệ còn mở: WebView2 tự kết nối ra Microsoft (ADR-0010, xử lý Phase 6).
 - **Kiến trúc thực tế:** [ARCHITECTURE.md](ARCHITECTURE.md). Quyết định: ADR [0005](adr/0005-chon-tts.md) TTS, [0006](adr/0006-license-live2d.md) Live2D, [0007](adr/0007-chon-stt.md) STT, [0008](adr/0008-llm-8b-mac-dinh.md) LLM, [0009](adr/0009-bao-mat-llama-server.md) bảo mật, [0010](adr/0010-webview2-ket-noi-ra-ngoai.md) WebView2.
 - **Chạy app:** `npm run tauri dev` (xem ARCHITECTURE §8).
 
@@ -180,23 +180,27 @@
 
 ## Phase 5 — Avatar
 
-**Trạng thái:** Đang làm
+**Trạng thái:** Hoàn thành (2026-11-13)
 
-- [ ] Live2D Cubism Web trong WebView2
-- [ ] Cửa sổ trong suốt, luôn trên, kéo thả, click-through, nhớ vị trí
-- [ ] Trạng thái avatar theo Conversation Manager
-- [ ] Lip-sync RMS + làm mượt
-- [ ] 3 chế độ: Companion / Chat / Focus
-- [ ] Giảm FPS khi idle
+- [x] 🔐 Tải (người dùng duyệt 2026-11-13) Cubism SDK for Web **5-r.5** (`sha256 67064a7f…6ba0`) + mẫu Koharu & Haruto (`koharu_haruto_ja.zip`, `sha256 a0f67736…0594`) → `E:\Mori Data\avatar\`; Koharu là model riêng (`koharu/runtime/koharu.model3.json`, Cubism 3, tham số `PARAM_*`)
+- [x] Live2D Cubism Web trong WebView2: `node scripts/setup_avatar.mjs` chép Core/shader/Framework/model vào thư mục gitignore; `src/live2d/avatar.ts` (nạp model, vật lý, thở, motion nghỉ, tự chớp mắt); Framework của Live2D được `// @ts-nocheck` (mã bên thứ ba không theo `strict`), code Mori vẫn strict. CSP thêm `'wasm-unsafe-eval'` (Core biên dịch WASM nhúng) + `connect-src 'self'` (shader). Ảnh kiểm tra (bản dev): hiển thị đủ người, nền trong suốt
+- [x] Cửa sổ avatar trong suốt, luôn trên, không viền, không hiện taskbar; kéo thả (`avatar_drag`), xuyên chuột (`set_avatar_click_through`), nhớ vị trí (lưu khi đứng yên 0.5 s, chỉ khôi phục nếu còn trên màn hình) — lệnh Rust, không mở quyền `core:window:*`
+- [x] Trạng thái avatar theo Conversation Manager: Rust phát `avatar-state` (nghe / nghĩ / rảnh), "nói" từ `tts-playing`; nghe → mắt long lanh + má hồng, nghĩ → liếc sang bên
+- [x] Lip-sync RMS (`tts-level`) + làm mượt theo thời gian thực (không phụ thuộc FPS)
+- [x] 3 chế độ: Mori + chat / Chỉ Mori (nhấp đúp nhân vật để mở lại chat, F2 trong cửa sổ avatar vẫn nói được) / Ẩn Mori; đóng khung chat = thoát app
+- [x] Giảm FPS khi rảnh: 15 FPS (đo 13), khi nghe/nghĩ/nói: 30 FPS
+- [x] **Người dùng** thử: nhân vật, nói chuyện, kéo thả, đổi chế độ — "thấy ổn" (2026-11-13)
+- [x] Audit Phase 5: 5/5 mục gate đạt, 0 Critical/High; sửa 2 Medium (xuyên chuột + "Chỉ Mori" làm kẹt → chế độ này luôn nhận chuột; Alt+F4 trên nhân vật → chuyển "Ẩn Mori" thay vì để app chạy ẩn) + Low (log lỗi escape xuống dòng, xóa/khôi phục dữ liệu chỉ từ khung chat, dòng bản quyền Live2D cố định ở khung chat)
 
 ### Gate Phase 5
-- [ ] 30 FPS khi hoạt động; TTFT không tăng quá 10% khi bật avatar
+- [x] 30 FPS khi hoạt động; TTFT không tăng quá 10% khi bật avatar — A/B `e2e_gate` (MODEL_EVALUATION §5.2): FPS **30.0** (40/40 lần đo khi model chạy), TTFT TB 463 → 467 ms (**+0.9 %**), P95 512 → 504 ms
+- Kiểm tra gate: `cargo fmt --check`, `clippy -D warnings`, `cargo test` (29), `tsc` sạch; audit 5/5 đạt
 
 ---
 
 ## Phase 6 — Ổn định MVP
 
-**Trạng thái:** Chưa bắt đầu
+**Trạng thái:** Đang làm
 
 - [ ] Benchmark đầy đủ (SPEC §19.4–19.5)
 - [ ] 🔐 WebView2 Fixed Version + luật firewall chặn outbound ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo 0 kết nối

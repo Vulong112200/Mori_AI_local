@@ -15,7 +15,7 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 | **Não (LLM)** | Qwen3-8B Q4_K_M · *chế độ nhanh:* Qwen3-4B-Instruct-2507 | llama.cpp b12284 **Vulkan** (iGPU) | TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s, RAM 6.2 GB | [0008](adr/0008-llm-8b-mac-dinh.md) | ✅ **Đã tích hợp vào app (Phase 1)** |
 | **Tai (STT)** | Whisper **large-v3** q5_0 | whisper.cpp v1.9.5 **tự build Vulkan** | **Giọng thật 100 câu (thu lại, micro đã sửa): WER 9.3 %** (lần thu đầu 20.6 %), 1.77 s TB / 2.41 s P95 | [0007](adr/0007-chon-stt.md), [0011](adr/0011-stt-large-v3.md) | Đang chạy trong app (Phase 2) |
 | **Giọng (TTS)** | ZeroTTS 0.1.5 **int8**, 8 giọng, mặc định `maichi` | ONNX Runtime CPU (Python 3.12, worker JSON Lines) | Chunk đầu P95 181–244 ms (50 lượt), RAM 1.1 GB | [0005](adr/0005-chon-tts.md) | Chạy trong app (Phase 3, gate đạt) |
-| **Hình (Avatar)** | Live2D Cubism SDK for Web; dev dùng mẫu **Koharu** | WebGL trong WebView2 | — | [0006](adr/0006-license-live2d.md) | Chưa làm (Phase 5) |
+| **Hình (Avatar)** | Live2D Cubism SDK for Web 5-r.5; dev dùng mẫu **Koharu** | WebGL2 trong WebView2 (cửa sổ trong suốt riêng) | 30 FPS khi hoạt động, 15 khi rảnh; TTFT +0.9 % (A/B) | [0006](adr/0006-license-live2d.md) | Chạy trong app (Phase 5) |
 | **Trí nhớ** | SQLite + FTS5 (không dấu), người dùng duyệt; tóm tắt hội thoại dài | Rust (rusqlite) | Xóa có kiểm chứng (test đọc thô file + WAL) | SPEC §11 | Tự ghi nhớ (ADR-0012), chờ người dùng thử |
 
 **End-to-end đo thật** — script Phase 0 (6 lượt): TB 2.63 s, max 3.59 s, 0 kết nối ra ngoài loopback. **Trong app** (`cargo test e2e_gate -- --ignored`, 20 câu giọng thật, lịch sử thật): **P95 3.45–3.72 s**, max 3.87 s (mục tiêu ≤ 4 s) — MODEL_EVALUATION §5.1.
@@ -161,6 +161,8 @@ E:\Mori Data\
 ├── runtime\llama.cpp\ b12284-cpu\, b12284-vulkan\ (app dùng bản vulkan)
 ├── runtime\whisper.cpp\ src-v1.9.5\, build-vulkan\, v1.9.5-vulkan\ (bản dùng)
 ├── runtime\python\    tts-venv\ (Python 3.12, zerotts/vieneu/korvatts/onnx), interpreters\, uv-cache\
+├── avatar\           sdk\CubismSdkForWeb-5-r.5\, models\koharu_haruto\, downloads\ (zip gốc, sha256 trong ROADMAP)
+├── backups\          mori-<thời gian>.db (sao lưu từ panel ⭐ Ghi nhớ)
 ├── database\mori.db   SQLite (WAL)
 ├── logs\mori.<ngày>.log
 └── settings\personality.md  (tùy chọn — ghi đè bản trong repo)
@@ -174,12 +176,16 @@ Ghi đè data root bằng biến môi trường `MORI_DATA_DIR`. `E:\Memora Data
 
 ```powershell
 npm install                      # lần đầu
+node scripts/setup_avatar.mjs    # lần đầu / sau khi đổi SDK hay model: chép Live2D vào thư mục gitignore
 npm run tauri dev                # chạy app; app tự quản lý llama-server
-cd src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test   # 7 test
+cd src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test   # 29 test
+cargo test e2e_gate -- --ignored --nocapture   # đo "thả F2 → nghe tiếng" (cần model thật)
+cargo test llm_gate -- --ignored --nocapture   # AI-06, AI-08, tự ghi nhớ (cần model thật)
 npx tsc --noEmit
 ```
 
 - Lần đầu mở: trạng thái "Mori đang thức dậy…" ~6–9 s (nạp 8B + warm-up).
+- Cửa sổ avatar (label `avatar`): `src/AvatarView.tsx` + `src/live2d/avatar.ts`; mã Live2D chỉ nạp trong cửa sổ này (lazy). Đo FPS khi vẽ liên tục: `VITE_AVATAR_BENCH=1 npm run tauri dev` (log `avatar_fps`).
 - Nếu `tauri dev` báo lỗi dev server: cổng 1420 còn bị Vite cũ giữ → tắt tiến trình `node … vite.js` đó.
 - Công cụ Phase 0: `scripts/phase0/` — `hw_inventory.ps1`, `bench_llm.ps1`, `bench_stt.ps1`, `bench_tts.py`, `wer.py`, `run_llm_prompts.py`, `quantize_zerotts_int8.py`, `e2e_latency.py` (cách gọi trong docstring/đầu file và [CLAUDE.md](../CLAUDE.md)).
 

@@ -1,4 +1,5 @@
 mod audio;
+mod avatar;
 mod db;
 mod llm;
 mod player;
@@ -135,6 +136,8 @@ struct InitState {
     voice_out: bool,
     tts_voice: String,
     tts_voices: Vec<String>,
+    avatar_mode: String,
+    avatar_click_through: bool,
 }
 
 #[tauri::command]
@@ -156,6 +159,8 @@ async fn init(state: State<'_, AppState>) -> Result<InitState, String> {
         voice_out: state.voice_out(),
         tts_voice: state.tts_voice(),
         tts_voices: state.tts_voices(),
+        avatar_mode: avatar::mode(&state),
+        avatar_click_through: avatar::click_through(&state),
     })
 }
 
@@ -200,8 +205,9 @@ fn set_mic(state: State<'_, AppState>, id: Option<String>) -> Result<(), String>
 
 /// Push-to-talk bắt đầu: bật micro, đồng thời nạp whisper-server trong lúc người dùng nói.
 #[tauri::command]
-async fn start_listening(state: State<'_, AppState>) -> Result<(), String> {
+async fn start_listening(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     state.interrupt(); // nói chen vào khi Mori đang nói/sinh = ngắt lời
+    avatar::set_state(&app, "listening");
     let (rec, mic, t) = (state.recorder.clone(), mic_setting(&state)?, Instant::now());
     tauri::async_runtime::spawn_blocking(move || rec.start(mic))
         .await
@@ -214,7 +220,17 @@ async fn start_listening(state: State<'_, AppState>) -> Result<(), String> {
 
 /// Thả phím: tắt micro → nhận dạng → trả transcript cho UI sửa trước khi gửi. Audio bị drop ở đây.
 #[tauri::command]
-async fn stop_listening(state: State<'_, AppState>) -> Result<String, String> {
+async fn stop_listening(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    avatar::set_state(&app, "thinking"); // đang nhận dạng
+    let result = transcribe_mic(&state).await;
+    avatar::set_state(&app, "idle"); // tự gửi → send_message đặt lại "thinking"
+    result
+}
+
+async fn transcribe_mic(state: &AppState) -> Result<String, String> {
     let t = Instant::now();
     let rec = state.recorder.clone();
     let pcm = tauri::async_runtime::spawn_blocking(move || rec.stop())
@@ -242,7 +258,8 @@ async fn stop_listening(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn cancel_listening(state: State<'_, AppState>) -> Result<(), String> {
+async fn cancel_listening(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    avatar::set_state(&app, "idle");
     let rec = state.recorder.clone();
     let _ = tauri::async_runtime::spawn_blocking(move || rec.stop()).await;
     Ok(())
@@ -296,8 +313,9 @@ async fn save_sample(state: State<'_, AppState>, file: String) -> Result<SavedSa
 
 /// Nút Dừng / Ngắt: dừng sinh và dừng nói.
 #[tauri::command]
-fn stop_generation(state: State<'_, AppState>) {
+fn stop_generation(app: tauri::AppHandle, state: State<'_, AppState>) {
     state.interrupt();
+    avatar::set_state(&app, "idle");
 }
 
 #[tauri::command]
@@ -389,6 +407,7 @@ async fn send_message(
     let (voice_out, voice) = (state.voice_out(), state.tts_voice());
     let mut splitter = speech::Splitter::default();
     let (t0, mut ttft_logged, mut sentence_logged) = (Instant::now(), false, false);
+    avatar::set_state(&app, "thinking");
     let user = state
         .db
         .add_message(&conversation_id, "user", text)
@@ -442,6 +461,7 @@ async fn send_message(
     };
     info!(conversation = %conversation_id, reply_chars = reply.chars().count(), stopped, "reply");
     let _ = on_event.send(ChatEvent::Done { message, stopped });
+    avatar::set_state(&app, "idle"); // còn đang đọc thì UI avatar thấy tts-playing → "nói"
 
     after_reply(app, conversation_id, user.clone());
     Ok(user)
@@ -629,6 +649,15 @@ async fn summarize(st: &AppState, conversation_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Lệnh xóa/khôi phục dữ liệu chỉ cho cửa sổ chat (cửa sổ avatar không cần; audit Phase 5 L2).
+fn main_window_only(w: &tauri::WebviewWindow) -> Result<(), String> {
+    if w.label() == "main" {
+        Ok(())
+    } else {
+        Err("lệnh này chỉ dùng từ khung chat".into())
+    }
+}
+
 /// id do DB sinh: 32 ký tự hex (ranh giới tin cậy cho id từ UI).
 fn check_id(id: &str) -> Result<(), String> {
     if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -683,13 +712,22 @@ fn update_memory(
 }
 
 #[tauri::command]
-fn delete_memory(state: State<'_, AppState>, id: String) -> Result<(), String> {
+fn delete_memory(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    main_window_only(&window)?;
     check_id(&id)?;
     state.db.delete_memory(&id).map_err(err)
 }
 
 #[tauri::command]
-fn delete_all_memories(state: State<'_, AppState>) -> Result<(), String> {
+fn delete_all_memories(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    main_window_only(&window)?;
     info!("xóa toàn bộ ghi nhớ");
     state.db.delete_all_memories().map_err(err)
 }
@@ -722,7 +760,12 @@ fn list_backups(state: State<'_, AppState>) -> Vec<String> {
 
 /// Khôi phục: sao lưu bản hiện tại trước (chọn nhầm vẫn lấy lại được), rồi thay DB. UI tải lại sau đó.
 #[tauri::command]
-fn restore_backup(state: State<'_, AppState>, name: String) -> Result<String, String> {
+fn restore_backup(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<String, String> {
+    main_window_only(&window)?;
     if !backups(&state.backups_dir).contains(&name) {
         return Err("không có bản sao lưu này".into());
     }
@@ -899,6 +942,7 @@ pub fn run() {
             if state.voice_out() {
                 state.tts.warm(); // nạp giọng sẵn để câu trả lời đầu không phải chờ
             }
+            avatar::setup(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -923,7 +967,13 @@ pub fn run() {
             delete_all_memories,
             backup_db,
             list_backups,
-            restore_backup
+            restore_backup,
+            avatar::set_avatar_mode,
+            avatar::set_avatar_click_through,
+            avatar::avatar_drag,
+            avatar::avatar_ptt,
+            avatar::avatar_report,
+            avatar::avatar_snapshot
         ])
         .build(tauri::generate_context!())
         .expect("không khởi tạo được Tauri")
@@ -1026,7 +1076,7 @@ mod tests {
                 .filter(|s| s.recorded)
                 .step_by(5)
                 .collect();
-            let mut rows = Vec::new();
+            let (mut rows, mut ttfts) = (Vec::new(), Vec::new());
             for s in &samples {
                 let wav = std::fs::read(samples::dir().join(&s.file)).unwrap();
                 let secs = (wav.len() - 44) as f32 / (audio::RATE * 2) as f32;
@@ -1040,8 +1090,10 @@ mod tests {
                 let (sys, history) = context(&system, &db, &conv, &text).unwrap();
                 let turn = tts.new_turn();
                 let (stop, mut splitter) = (Notify::new(), speech::Splitter::default());
+                let (t_llm, mut ttft) = (Instant::now(), None);
                 let (reply, _) = llm
                     .chat(&prompt::build(&sys, &history), &stop, |d| {
+                        ttft.get_or_insert_with(|| t_llm.elapsed().as_millis());
                         for x in splitter.push(d) {
                             tts.speak(turn, &x, DEFAULT_VOICE);
                         }
@@ -1061,11 +1113,13 @@ mod tests {
                     tokio::time::sleep(Duration::from_millis(20)).await;
                 }
                 let e2e = e2e.expect("không có tiếng");
+                let ttft = ttft.unwrap_or_default();
                 println!(
-                    "{} {secs:.1}s audio | STT {stt_ms} ms | e2e {e2e} ms",
+                    "{} {secs:.1}s audio | STT {stt_ms} ms | TTFT {ttft} ms | e2e {e2e} ms",
                     s.file
                 );
                 rows.push((secs, e2e));
+                ttfts.push(ttft);
                 if let Some(h) = prefill_next(&llm, &system, &db, &conv) {
                     h.await.unwrap();
                 }
@@ -1083,6 +1137,8 @@ mod tests {
             let all = p95(rows.iter().map(|r| r.1).collect());
             let short = p95(rows.iter().filter(|r| r.0 <= 5.0).map(|r| r.1).collect());
             println!("tất cả: P95 {} ms, TB {} ms, n={}", all.0, all.1, all.2);
+            let t = p95(ttfts);
+            println!("TTFT: P95 {} ms, TB {} ms", t.0, t.1);
             println!(
                 "audio ≤ 5 s: P95 {} ms, TB {} ms, n={}",
                 short.0, short.1, short.2
