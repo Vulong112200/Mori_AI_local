@@ -1,0 +1,12 @@
+# SHA-256 của model và chương trình Mori chạy (SPEC §14.2–14.3). Đường dẫn tính từ data root (E:\Mori Data).
+# Kiểm lúc khởi động (llama-server + model: sai thì không chạy) và ở màn hình 🔌 Offline. Đổi file → cập nhật dòng ở đây.
+d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785  models/llm/Qwen3-8B-Q4_K_M.gguf
+3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597  models/llm/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1  models/stt/ggml-large-v3-q5_0.bin
+0348d1b75d9e3383b27af5b4e9772dedc03a60bcc3f029c8df88505352710340  models/tts/zerotts-int8/onnx/local_frame_decode.onnx
+b15b9abccf6226eef5b41d6effee2e4ca36155d63b883a149021da1bd6c8e48f  models/tts/zerotts-int8/onnx/prefix_step.onnx
+6bb80d08a436f451f57d3500e0586ba4fd2d2651097dcde5e59ca900272ccf1f  models/tts/zerotts-int8/onnx/text_encoder.onnx
+f6b84e65108d39bbff4f82927881c608778015fa36aba253c8336c08ab239f13  models/tts/zerotts-int8/onnx/voice_encoder.onnx
+5e1c96c64978cea3ae8ea505285e93dd1721ac46800f96d2002fb28c02618d55  runtime/llama.cpp/b12284-vulkan/llama-server.exe
+0f1c92a0b2f477ee5bcc8418757f0f2b418bc6b9bd6e2c1b35e3aec1dacee092  runtime/whisper.cpp/v1.9.5-vulkan/whisper-server.exe
+9d3646e6bbcb4f41546179bd47c08a928f2c942b0be46f5f528f72daa056739c  runtime/webview2/Microsoft.WebView2.FixedVersionRuntime.157.0.4341.57.x64/msedgewebview2.exe

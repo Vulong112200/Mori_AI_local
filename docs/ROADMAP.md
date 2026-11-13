@@ -105,7 +105,7 @@
 ### Bảo mật — để sau (từ audit Phase 1, ADR-0009)
 - [x] 🔐 ACL `E:\Mori Data` chỉ cho user hiện tại + SYSTEM + Administrators (người dùng duyệt 2026-11-13; `icacls /inheritance:r`, file con kế thừa — đã kiểm `mori.db`)
 - [ ] Thử crash thật (`abort()` bản debug) → xác nhận không có dump trong `WER\ReportQueue`, `CrashDumps`, event 1001
-- [ ] Kiểm SHA-256 `llama-server.exe` + model theo manifest trước khi chạy (Model Manager, Phase 6)
+- [x] Kiểm SHA-256 theo `config/manifest.sha256` (10 file: 2 GGUF, model STT, 4 ONNX TTS, llama-server, whisper-server, msedgewebview2): llama-server + model **sai thì không chạy** (`integrity.rs`, BCrypt của Windows, nhớ kết quả theo kích thước + mtime); màn hình 🔌 Offline hiện từng file (2026-11-13)
 - [x] Thu hẹp capability từ `core:default` → `core:event:allow-listen/unlisten` (streaming kiểm chứng cùng lượt thử gate 1)
 - [x] Loại trừ Windows Error Reporting cho `mori.exe` / `llama-server.exe` (`WerAddExcludedApplication`, HKCU; đã thấy trong registry) + xóa dump Crashpad WebView2 lúc khởi động
 
@@ -207,7 +207,7 @@
 - [~] Kiểm tra offline + privacy (SPEC §19.6) — 2026-11-13 khi app chạy: chỉ nghe `127.0.0.1` (llama-server), không kết nối TCP/UDP nào ra ngoài loopback từ mori/llama/whisper/python; chat chạy khi rút mạng (gate 1); xóa memory có kiểm chứng (gate 4). Ngoại lệ WebView2 đã chặn (dòng trên). Không file âm thanh nào được ghi hôm nay trong `%TEMP%`, `E:\Mori Data`, thư mục app (sau nhiều lượt nói)
 - [~] Khôi phục: crash worker — **TTS**: giết worker → tự dựng lại sau 1 s, sẵn sàng 5.4 s (đo 2026-11-13); **llama-server**: đã đo Phase 1 (Ready lại 6.3 s); **whisper-server**: spawn lại ở lượt sau. **Đổi thiết bị loa**: stream lỗi (rút tai nghe) hoặc thiết bị mặc định đổi → mở lại ở lượt kế tiếp (`player.rs`) — chờ người dùng thử. **Sleep/resume**: chờ người dùng thử
 - [x] Màn hình "sẵn sàng offline": nút 🔌 Offline trên khung chat — kiểm LLM đang chạy, đủ file model/runtime LLM/STT/TTS, DB; không gọi mạng
-- [ ] Security audit (agent `security-auditor`) — cuối Phase 6
+- [x] Security audit cuối Phase 6 (2026-11-13): 0 Critical/High; đã sửa M1 (SHA-256, dòng trên), M2 (firewall chặn **mọi exe dưới runtime** — 145 luật, gồm các helper của WebView2 Fixed), L1 (xóa biến `WEBVIEW2_*` lúc khởi động, ghim thư mục Fixed), L2 (script cảnh báo firewall tắt/file thiếu; 🔌 Offline báo khi không dùng WebView2 riêng), I1. Đo lại: 12 tiến trình Mori, chỉ nghe 127.0.0.1, **0 kết nối ra ngoài**, 0 UDP, firewall bật cả 3 profile. **Chờ người dùng quyết M3**: `D:\Mori_AI_Local` (chứa `mori.exe` bản dev + 100 WAV giọng thật) đang cho Authenticated Users quyền sửa. Rủi ro còn lại (chấp nhận, ghi ADR-0010): tra DNS do dịch vụ Windows làm có thể lộ tên miền Microsoft (không có nội dung); WebView2 Fixed không tự vá → cập nhật tay; bản sao lưu giữ dữ liệu đã xóa
 - [ ] **Người dùng** đánh giá chủ quan ≥ 4/5 (SPEC §19.7: hiểu tiếng Việt, giọng, nhịp nói, tính cách, memory, trải nghiệm, biểu cảm avatar)
 
 ### Gate Phase 6

@@ -103,6 +103,7 @@ Luồng giọng nói đầy đủ (Phase 2–3, đã đo e2e bằng script): gi�
 - Khởi động gọi `WerAddExcludedApplication` cho `mori.exe` + `llama-server.exe` + `whisper-server.exe` (HKCU) → Windows Error Reporting không lấy dump (có thể chứa hội thoại). Loại trừ theo **tên**, lưu vĩnh viễn trong HKCU (cũng áp cho `llama-server.exe` của dự án khác); gỡ: `reg delete "HKCU\Software\Microsoft\Windows\Windows Error Reporting\ExcludedApplications" /v llama-server.exe /f` (tương tự `mori.exe`).
 - **WebView2 Fixed Version** riêng (`E:\Mori Data\runtime\webview2\`, không tự cập nhật) + **8 luật firewall chặn outbound** cho mọi tiến trình Mori (`scripts/firewall.ps1`, cần admin) → đo **0 kết nối ra ngoài loopback** ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)). Trước đó WebView2 Evergreen tự mở 1–2 kết nối HTTPS ra Microsoft lúc khởi động.
 - Thư mục `E:\Mori Data` chỉ cho tài khoản người dùng + SYSTEM + Administrators (ACL, 2026-11-13).
+- **SHA-256** model/chương trình theo `config/manifest.sha256` (`integrity.rs`, BCrypt): llama-server + model sai thì không chạy; 🔌 Offline hiện từng file. App xóa biến `WEBVIEW2_*` lúc khởi động (như `LLAMA_*`).
 - WebView2 có Crashpad riêng (`%LOCALAPPDATA%\dev.mori.companion\EBWebView\Crashpad`), không tắt được bằng `--disable-crash-reporter` (đã thử) → khởi động xóa `reports/` + `attachments/`. Còn hở: dump renderer có thể được upload trước lần khởi động sau, tùy cài đặt diagnostic data của Windows.
 
 Còn mở (xem ROADMAP "Bảo mật — để sau"): ACL thư mục `E:\Mori Data`, kiểm SHA-256 binary/model lúc chạy.

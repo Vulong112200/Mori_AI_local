@@ -74,6 +74,12 @@ impl Llm {
         self.status.borrow().clone()
     }
 
+    /// Không khởi động được (vd. file không khớp SHA-256): đặt trạng thái lỗi, không chạy llama-server.
+    pub fn fail(&self, message: String) {
+        warn!(%message, "llm");
+        self.status.send_replace(Status::Error { message });
+    }
+
     pub fn set_model(&self, model: &str) {
         self.desired.send_replace(Some(model.to_string()));
     }

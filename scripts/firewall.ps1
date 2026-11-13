@@ -5,20 +5,17 @@
 # Tên luật/nhóm dùng ASCII: PowerShell 5.1 đọc file UTF-8 không BOM sai dấu tiếng Việt.
 param([string]$Data = "E:\Mori Data", [string]$Repo = (Split-Path $PSScriptRoot -Parent))
 $group = "Mori - block outbound"
+# Mọi exe dưới runtime (llama/whisper/python/WebView2 + các helper của WebView2 — audit Phase 6 M2) + mori.exe.
 $programs = @(
-    (Get-ChildItem "$Data\runtime\webview2" -Recurse -Filter msedgewebview2.exe -ErrorAction SilentlyContinue).FullName
-    "$Data\runtime\llama.cpp\b12284-vulkan\llama-server.exe"
-    "$Data\runtime\llama.cpp\b12284-cpu\llama-server.exe"
-    "$Data\runtime\whisper.cpp\v1.9.5-vulkan\whisper-server.exe"
-    "$Data\runtime\python\tts-venv\Scripts\python.exe"
-    "$Data\runtime\python\interpreters\cpython-3.12-windows-x86_64-none\python.exe"
+    (Get-ChildItem "$Data\runtime" -Recurse -Filter *.exe -ErrorAction SilentlyContinue).FullName
     "$Repo\src-tauri\target\debug\mori.exe"
     "$Repo\src-tauri\target\release\mori.exe"
 ) | Where-Object { $_ }
+Get-NetFirewallProfile | Where-Object { -not $_.Enabled } | ForEach-Object { "WARN: firewall profile '$($_.Name)' is OFF - rules have no effect" }
 Get-NetFirewallRule -Direction Outbound | Where-Object { $_.DisplayName -like "Mori*" } | Remove-NetFirewallRule
 foreach ($p in $programs) {
     New-NetFirewallRule -Group $group -DisplayName "Mori block outbound: $(Split-Path $p -Leaf)" `
         -Direction Outbound -Action Block -Program $p -Profile Any | Out-Null
-    "blocked: $p"
+    if (Test-Path $p) { "blocked: $p" } else { "WARN missing (rule added anyway): $p" }
 }
 "Done: $($programs.Count) rules in group '$group'"

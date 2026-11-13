@@ -1,6 +1,7 @@
 mod audio;
 mod avatar;
 mod db;
+mod integrity;
 mod llm;
 mod player;
 mod prompt;
@@ -32,6 +33,8 @@ const STT_MODEL: &str = "ggml-large-v3-q5_0.bin";
 /// ADR-0005: ZeroTTS int8 trong venv Python 3.12.
 const TTS_MODEL_DIR: &str = "zerotts-int8";
 const DEFAULT_VOICE: &str = "maichi";
+/// ADR-0010: WebView2 Fixed Version (ghim phiên bản; SHA-256 trong config/manifest.sha256).
+const WEBVIEW2_FIXED: &str = "Microsoft.WebView2.FixedVersionRuntime.157.0.4341.57.x64";
 /// Giới hạn đầu vào ở ranh giới tin cậy (UI → Rust). Đủ cho AI-08 (đoạn ~4 000 token = 11 774 ký tự).
 const MAX_INPUT_CHARS: usize = 12_000;
 /// personality.md quá dài sẽ chiếm hết context (ngân sách token: xem prompt.rs).
@@ -174,7 +177,13 @@ struct Check {
 /// Màn hình "sẵn sàng offline" (Phase 6): mọi thứ Mori cần đều nằm trên máy, không cần Internet.
 /// Chỉ kiểm file/trạng thái cục bộ, không gọi mạng.
 #[tauri::command]
-fn readiness(state: State<'_, AppState>) -> Vec<Check> {
+async fn readiness(app: tauri::AppHandle) -> Vec<Check> {
+    tauri::async_runtime::spawn_blocking(move || readiness_checks(&app.state::<AppState>()))
+        .await
+        .unwrap_or_default()
+}
+
+fn readiness_checks(state: &AppState) -> Vec<Check> {
     let data = data_dir();
     let file = |name: &'static str, path: PathBuf| {
         let ok = path.is_file();
@@ -230,7 +239,26 @@ fn readiness(state: State<'_, AppState>) -> Vec<Check> {
             ok: state.db.setting("_").is_ok(),
             detail: data.join("database").join("mori.db").display().to_string(),
         },
+        Check {
+            name: "WebView2 riêng (chặn được mạng)",
+            ok: std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER").is_some(),
+            detail: if std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER").is_some() {
+                WEBVIEW2_FIXED.into()
+            } else {
+                "đang dùng bản của Windows — có kết nối ra Microsoft (ADR-0010)".into()
+            },
+        },
     ]
+    .into_iter()
+    .chain(integrity::manifest().into_iter().map(|e| {
+        let r = integrity::check(&state.db, &data, &e);
+        Check {
+            name: "SHA-256",
+            ok: r.is_ok(),
+            detail: format!("{} — {}", e.rel, r.err().unwrap_or_else(|| "khớp".into())),
+        }
+    }))
+    .collect()
 }
 
 #[tauri::command]
@@ -459,6 +487,7 @@ async fn send_message(
     text: String,
     on_event: Channel<ChatEvent>,
 ) -> Result<Message, String> {
+    check_id(&conversation_id)?;
     let text = text.trim();
     if text.is_empty() {
         return Err("Tin nhắn trống".into());
@@ -897,13 +926,18 @@ fn exclude_from_wer() {
 /// ADR-0010: dùng WebView2 Fixed Version riêng của Mori (không tự cập nhật, đường dẫn exe riêng → firewall
 /// chặn ra ngoài được mà không đụng WebView2 của app khác). Không có thì dùng bản Evergreen của Windows.
 fn use_fixed_webview2(data: &std::path::Path) {
-    let fixed = std::fs::read_dir(data.join("runtime").join("webview2"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|e| e.path())
-        .find(|p| p.join("msedgewebview2.exe").is_file());
-    match fixed {
+    // WebView2 ưu tiên biến môi trường hơn tham số API: xóa hết để không ai ghi đè được cờ chặn mạng
+    // (vd. WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port) — audit Phase 6 L1, như LLAMA_*.
+    for (k, _) in std::env::vars_os() {
+        if k.to_string_lossy()
+            .to_ascii_uppercase()
+            .starts_with("WEBVIEW2_")
+        {
+            std::env::remove_var(&k);
+        }
+    }
+    let dir = data.join("runtime").join("webview2").join(WEBVIEW2_FIXED);
+    match dir.join("msedgewebview2.exe").is_file().then_some(dir) {
         Some(dir) => {
             info!(dir = %dir.display(), "WebView2 Fixed Version");
             // Edition 2021, gọi trước khi tạo cửa sổ/thread dùng env.
@@ -1000,6 +1034,30 @@ pub fn run() {
             });
             let (supervisor, handle) = (llm.clone(), app.handle().clone());
             tauri::async_runtime::spawn(async move {
+                // SPEC §14.2: llama-server + model phải khớp manifest SHA-256 trước khi chạy (lần đầu ~15 s băm,
+                // sau đó dùng kết quả đã nhớ theo kích thước + thời điểm sửa đổi).
+                let h = handle.clone();
+                let verified = tauri::async_runtime::spawn_blocking(move || {
+                    let st = h.state::<AppState>();
+                    let data = data_dir();
+                    integrity::manifest()
+                        .into_iter()
+                        .filter(|e| {
+                            e.rel.starts_with("runtime/llama.cpp/")
+                                || e.rel.starts_with("models/llm/")
+                        })
+                        .try_for_each(|e| {
+                            integrity::check(&st.db, &data, &e)
+                                .map_err(|why| format!("{}: {why}", e.rel))
+                        })
+                })
+                .await
+                .unwrap_or_else(|e| Err(e.to_string()));
+                if let Err(why) = verified {
+                    supervisor.fail(format!("không chạy model: {why}"));
+                    let _ = handle.emit("llm-status", supervisor.status());
+                    return;
+                }
                 supervisor
                     .supervise(|s| {
                         let _ = handle.emit("llm-status", s);
