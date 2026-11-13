@@ -1199,6 +1199,7 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let sup = llm.clone();
             tauri::async_runtime::spawn(async move { sup.supervise(|_| {}).await });
+            let t_load = Instant::now();
             tts.warm();
             stt.warm().await;
             for _ in 0..360 {
@@ -1210,6 +1211,10 @@ mod tests {
             assert!(
                 matches!(llm.status(), Status::Ready { .. }),
                 "llama-server không sẵn sàng"
+            );
+            println!(
+                "llama-server Ready sau {:.1} s",
+                t_load.elapsed().as_secs_f32()
             );
             // Như app khi model vừa sẵn sàng.
             prefill_next(&llm, &system, &db, &conv)

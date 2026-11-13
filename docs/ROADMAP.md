@@ -3,14 +3,14 @@
 > Nguồn sự thật duy nhất cho tiến độ. Tick `[x]` khi xong. Cập nhật dòng **Trạng thái** của phase. Gate chỉ được tick qua `/gate <n>`.
 > Ký hiệu: `[ ]` chưa làm · `[~]` đang làm · `[x]` xong · `[!]` bị chặn (ghi lý do) · 🔐 cần người dùng duyệt (tải/cài).
 
-**Phase hiện tại:** 6
+**Phase hiện tại:** 7
 **Cập nhật:** 2026-11-13
 
 ## Bàn giao (đọc trước khi làm tiếp)
 
 - **File bàn giao cho session mới: [HANDOFF.md](HANDOFF.md)** — tiến độ, yêu cầu nguyên văn của người dùng, quyết định Phase 7, code nháp, lưu ý kỹ thuật.
 - **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào), Phase 3 (giọng nói ra, e2e P95 3.45–3.72 s), Phase 4 (Mori tự ghi nhớ — ADR-0012), Phase 5 (avatar Live2D Koharu: cửa sổ trong suốt, nhép miệng, trạng thái, 3 chế độ; 30 FPS, TTFT +0.9 %).
-- **Đang làm:** Phase 6 (ổn định MVP) — gần xong, **dừng giữa chừng theo yêu cầu người dùng (2026-11-13 chiều)**. Đã xong: WebView2 Fixed + 145 luật firewall (0 kết nối ra ngoài), ACL `E:\Mori Data` + `D:\Mori_AI_Local`, SHA-256 model/chương trình (`config/manifest.sha256`), idle 30 phút, CPU fallback, worker TTS tự hồi phục, 🔌 Offline, audit cuối, chấm chủ quan **4/5**. Hội thoại liên tục 30 phút **đạt** (246 lượt, RAM 9.36–9.40 GB không tăng, e2e P95 3.60 s). **Còn để chốt gate 6:** (1) người dùng thử rút/cắm tai nghe + sleep/resume; (2) `/gate 6`.
+- **Phase 6 đã qua gate (2026-11-13)** — 2 mục thử tay (tai nghe, sleep/resume) dời sang gate 7. Đã xong: WebView2 Fixed + 145 luật firewall (0 kết nối ra ngoài), ACL `E:\Mori Data` + `D:\Mori_AI_Local`, SHA-256 model/chương trình (`config/manifest.sha256`), idle 30 phút, CPU fallback, worker TTS tự hồi phục, 🔌 Offline, audit cuối, chấm chủ quan **4/5**. Hội thoại liên tục 30 phút **đạt** (246 lượt, RAM 9.36–9.40 GB không tăng, e2e P95 3.60 s). **Còn để chốt gate 6:** (1) người dùng thử rút/cắm tai nghe + sleep/resume; (2) `/gate 6`.
 - **Tiếp theo — Phase 7 (sống động & cá nhân hoá, người dùng yêu cầu 2026-11-13):** xem mục Phase 7 cuối file. **Code nháp đã viết nhưng CHƯA nối vào `lib.rs`, CHƯA build** (không có `mod` nên không ảnh hưởng build hiện tại): `src-tauri/src/hotkey.rs`, `emotion.rs`, `proactive.rs`.
 - **Máy mới/clone mới:** `node scripts/setup_avatar.mjs` trước `npm run tauri dev`; đổi WebView2/mori.exe → chạy lại `scripts/firewall.ps1` (admin); đổi model/runtime → cập nhật `config/manifest.sha256`.
 - **Độ trễ (2026-11-13):** cửa sổ lịch sử nhảy khối 12 tin + làm ấm prompt (sau mỗi lượt và khi model sẵn sàng) + llama-server `-np 1` + câu đầu cắt ở dấu phẩy/≤ 50 ký tự. Tóm tắt hội thoại (Phase 4) phải giữ prefix ổn định như vậy.
@@ -203,7 +203,7 @@
 
 ## Phase 6 — Ổn định MVP
 
-**Trạng thái:** Đang làm
+**Trạng thái:** Hoàn thành (2026-11-13)
 
 - [~] Benchmark đầy đủ (SPEC §19.4–19.5) — đã có: e2e P95 3.45–3.72 s, TTFT ~0.4–0.47 s, TTS first audio P95 181–244 ms, stop micro 35–85 ms, avatar 30 FPS (MODEL_EVALUATION §5). **Không GPU (CPU fallback)**: cùng bản llama.cpp Vulkan, ẩn GPU (`GGML_VK_VISIBLE_DEVICES`) → tự chạy CPU: 4B pp 119 tok/s, tg 17.8 tok/s (2026-11-13) — máy không GPU nên bật Chế độ nhanh. **Idle 30 phút** (2026-11-13, app + avatar, đo mỗi phút): tổng RAM tiến trình Mori 7.93–7.97 GB trong 27 phút (llama-server 6301 MB, TTS 602 MB, WebView 982–1020 MB, mori.exe 44 MB), phút 28 Windows thu working set → 6.90 GB; **không tăng dần** ✅. **Hội thoại liên tục 30 phút** (2026-11-13, `MORI_SOAK_MINUTES=30 cargo test e2e_gate`, app tắt, 20 câu giọng thật lặp): **246 lượt, không treo**; RAM llama-server + whisper-server + TTS **9.36–9.40 GB suốt 30 phút, không tăng dần** ✅; e2e TB 2.88 s, **P95 3.60 s**, max 3.90 s; TTFT TB 382 ms, P95 435 ms
 - [x] 🔐 WebView2 Fixed Version 157.0.4341.57 (người dùng duyệt) + 8 luật firewall chặn outbound (`scripts/firewall.ps1`, admin) ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo: **0 kết nối ra ngoài loopback** (WebView2 chỉ còn socket `Bound` bị chặn)
@@ -214,13 +214,14 @@
 - [x] **Người dùng** đánh giá chủ quan: **4/5** (2026-11-13) — đạt ngưỡng ≥ 4/5 (SPEC §19.7)
 
 ### Gate Phase 6
-- [ ] Mọi tiêu chí chấp nhận quan trọng đạt
+- [x] Mọi tiêu chí chấp nhận quan trọng đạt — SPEC §19.4 (e2e P95 3.45–3.72 s, TTFT ~0.4 s, TTS first audio P95 ≤ 244 ms, stop micro ≤ 85 ms, 30 FPS), §19.5 (idle 30 phút, hội thoại 30 phút, CPU fallback, worker TTS tự hồi phục), §19.6 (0 kết nối ra ngoài, xóa có kiểm chứng), §19.7 (4/5). Kiểm tra gate 2026-11-13: `cargo fmt --check`, `clippy -D warnings`, `cargo test` (30), `tsc` sạch; audit hẹp 5/5 đạt, 0 Critical/High/Medium (Low: `avatar_report` log chuỗi lỗi WebView — giữ quy ước không đưa nội dung chat vào lỗi)
+- Người dùng chọn chốt gate, **thử sau** 2 mục cần thao tác tay: rút/cắm tai nghe khi Mori đang nói, sleep/resume rồi nói tiếp (§19.5) → chuyển sang checklist Gate Phase 7
 
 ---
 
 ## Phase 7 — Sống động & cá nhân hoá (sau MVP)
 
-**Trạng thái:** Chưa bắt đầu (kế hoạch + code nháp; làm sau gate 6)
+**Trạng thái:** Đang làm (từ 2026-11-13)
 
 Yêu cầu người dùng (2026-11-13): hoạt cảnh đỡ lặp lại, ngẫu nhiên; gọi Mori bằng phím tắt từ bất kỳ đâu; sinh hoạt theo giờ thật ("như có nhân vật thật sống trong máy": sáng thức dậy, chơi một mình, làm việc, ngủ, nghe nhạc, học, ăn, tắm, thay đồ…); nhiều biểu cảm; cá nhân hoá hơn. Người dùng chọn:
 - **Phím tắt toàn cục: Ctrl + Space + Q** (giữ = nói, thả = gửi; bấm nhanh = bật/tắt nghe). Space không phải phím bổ trợ → RegisterHotKey không dùng được → low-level keyboard hook chỉ xét Ctrl/Space/Q, chỉ nuốt Q. Hệ quả đã báo người dùng: Ctrl+Space vẫn tới app đang mở (vd. gợi ý code, đổi bộ gõ).
@@ -238,4 +239,5 @@ Việc:
 - [ ] Kiểm: `cargo fmt/clippy/test`, `tsc`; chụp `avatar_snapshot` từng biểu cảm/hoạt cảnh; đo FPS + TTFT không đổi (A/B như §5.2); audit (hook bàn phím, chủ động nói)
 
 ### Gate Phase 7
+- [ ] (Mang từ gate 6) **Người dùng** thử rút/cắm tai nghe khi Mori đang nói (loa mở lại ở lượt sau) và sleep/resume rồi nói tiếp
 - [ ] Người dùng thử: phím tắt từ app khác, hoạt cảnh theo giờ, biểu cảm theo cảm xúc, chào/nhắc nghỉ — thấy "sống" hơn; avatar vẫn 30 FPS, TTFT không tăng > 10 %
