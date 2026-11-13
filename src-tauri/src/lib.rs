@@ -1225,7 +1225,20 @@ mod tests {
                 .step_by(5)
                 .collect();
             let (mut rows, mut ttfts) = (Vec::new(), Vec::new());
-            for s in &samples {
+            // Đo dài (SPEC §19.5 "hội thoại 30 phút"): MORI_SOAK_MINUTES=30 → lặp các câu tới hết giờ.
+            let soak = std::env::var("MORI_SOAK_MINUTES")
+                .ok()
+                .and_then(|m| m.parse::<u64>().ok())
+                .map(|m| (Instant::now(), Duration::from_secs(m * 60)));
+            let turns = samples.iter().cycle().take_while(|_| match soak {
+                Some((t0, len)) => t0.elapsed() < len,
+                None => true,
+            });
+            for s in turns.take(if soak.is_some() {
+                usize::MAX
+            } else {
+                samples.len()
+            }) {
                 let wav = std::fs::read(samples::dir().join(&s.file)).unwrap();
                 let secs = (wav.len() - 44) as f32 / (audio::RATE * 2) as f32;
                 let t0 = Instant::now(); // = lúc micro tắt
