@@ -9,9 +9,9 @@
 ## Bàn giao (đọc trước khi làm tiếp)
 
 - **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào), Phase 3 (giọng nói ra, e2e P95 3.45–3.72 s), Phase 4 (Mori tự ghi nhớ — ADR-0012), Phase 5 (avatar Live2D Koharu: cửa sổ trong suốt, nhép miệng, trạng thái, 3 chế độ; 30 FPS, TTFT +0.9 %).
-- **Đang làm:** Phase 6 (ổn định MVP): benchmark đủ, kiểm offline/privacy, khôi phục lỗi (crash worker, đổi thiết bị audio, sleep/resume), màn hình "sẵn sàng offline", audit, đánh giá chủ quan. Việc 🔐 cần người dùng: WebView2 Fixed Version + luật firewall (admin), ACL `E:\Mori Data`. Máy mới/clone mới: `node scripts/setup_avatar.mjs` trước `npm run tauri dev`.
+- **Đang làm:** Phase 6 (ổn định MVP): benchmark đủ, kiểm offline/privacy, khôi phục lỗi (crash worker, đổi thiết bị audio, sleep/resume), màn hình "sẵn sàng offline", audit, đánh giá chủ quan. Đã xong 🔐: WebView2 Fixed + firewall, ACL `E:\Mori Data`. Máy mới/clone mới: `node scripts/setup_avatar.mjs` trước `npm run tauri dev`.
 - **Độ trễ (2026-11-13):** cửa sổ lịch sử nhảy khối 12 tin + làm ấm prompt (sau mỗi lượt và khi model sẵn sàng) + llama-server `-np 1` + câu đầu cắt ở dấu phẩy/≤ 50 ký tự. Tóm tắt hội thoại (Phase 4) phải giữ prefix ổn định như vậy.
-- **Phase 0–5 đã qua gate.** Ngoại lệ còn mở: WebView2 tự kết nối ra Microsoft (ADR-0010, xử lý Phase 6).
+- **Phase 0–5 đã qua gate.** WebView2 đã dùng bản Fixed + firewall chặn (ADR-0010): 0 kết nối ra ngoài.
 - **Kiến trúc thực tế:** [ARCHITECTURE.md](ARCHITECTURE.md). Quyết định: ADR [0005](adr/0005-chon-tts.md) TTS, [0006](adr/0006-license-live2d.md) Live2D, [0007](adr/0007-chon-stt.md) STT, [0008](adr/0008-llm-8b-mac-dinh.md) LLM, [0009](adr/0009-bao-mat-llama-server.md) bảo mật, [0010](adr/0010-webview2-ket-noi-ra-ngoai.md) WebView2.
 - **Chạy app:** `npm run tauri dev` (xem ARCHITECTURE §8).
 
@@ -103,7 +103,7 @@
 ---
 
 ### Bảo mật — để sau (từ audit Phase 1, ADR-0009)
-- [ ] 🔐 ACL `E:\Mori Data` chỉ cho user hiện tại + SYSTEM + Administrators (hiện "Authenticated Users: Modify") — cần người dùng đồng ý đổi quyền thư mục
+- [x] 🔐 ACL `E:\Mori Data` chỉ cho user hiện tại + SYSTEM + Administrators (người dùng duyệt 2026-11-13; `icacls /inheritance:r`, file con kế thừa — đã kiểm `mori.db`)
 - [ ] Thử crash thật (`abort()` bản debug) → xác nhận không có dump trong `WER\ReportQueue`, `CrashDumps`, event 1001
 - [ ] Kiểm SHA-256 `llama-server.exe` + model theo manifest trước khi chạy (Model Manager, Phase 6)
 - [x] Thu hẹp capability từ `core:default` → `core:event:allow-listen/unlisten` (streaming kiểm chứng cùng lượt thử gate 1)
@@ -202,9 +202,9 @@
 
 **Trạng thái:** Đang làm
 
-- [~] Benchmark đầy đủ (SPEC §19.4–19.5) — đã có: e2e P95 3.45–3.72 s, TTFT ~0.4–0.47 s, TTS first audio P95 181–244 ms, stop micro 35–85 ms, avatar 30 FPS (MODEL_EVALUATION §5). Còn: idle 30 phút / hội thoại 30 phút–2 giờ (RAM ổn định), chạy không GPU (CPU fallback)
-- [ ] 🔐 WebView2 Fixed Version + luật firewall chặn outbound ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo 0 kết nối — **cần người dùng duyệt tải (~200 MB) + quyền admin**
-- [~] Kiểm tra offline + privacy (SPEC §19.6) — 2026-11-13 khi app chạy: chỉ nghe `127.0.0.1` (llama-server), không kết nối TCP/UDP nào ra ngoài loopback từ mori/llama/whisper/python; chat chạy khi rút mạng (gate 1); xóa memory có kiểm chứng (gate 4). Còn: ngoại lệ WebView2 (dòng trên), không file audio tạm (kiểm lại cuối)
+- [~] Benchmark đầy đủ (SPEC §19.4–19.5) — đã có: e2e P95 3.45–3.72 s, TTFT ~0.4–0.47 s, TTS first audio P95 181–244 ms, stop micro 35–85 ms, avatar 30 FPS (MODEL_EVALUATION §5). **Không GPU (CPU fallback)**: cùng bản llama.cpp Vulkan, ẩn GPU (`GGML_VK_VISIBLE_DEVICES`) → tự chạy CPU: 4B pp 119 tok/s, tg 17.8 tok/s (2026-11-13) — máy không GPU nên bật Chế độ nhanh. **Idle 30 phút** (2026-11-13, app + avatar, đo mỗi phút): tổng RAM tiến trình Mori 7.93–7.97 GB trong 27 phút (llama-server 6301 MB, TTS 602 MB, WebView 982–1020 MB, mori.exe 44 MB), phút 28 Windows thu working set → 6.90 GB; **không tăng dần** ✅. Còn: hội thoại 30 phút–2 giờ (người dùng dùng thật, xem log)
+- [x] 🔐 WebView2 Fixed Version 157.0.4341.57 (người dùng duyệt) + 8 luật firewall chặn outbound (`scripts/firewall.ps1`, admin) ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo: **0 kết nối ra ngoài loopback** (WebView2 chỉ còn socket `Bound` bị chặn)
+- [~] Kiểm tra offline + privacy (SPEC §19.6) — 2026-11-13 khi app chạy: chỉ nghe `127.0.0.1` (llama-server), không kết nối TCP/UDP nào ra ngoài loopback từ mori/llama/whisper/python; chat chạy khi rút mạng (gate 1); xóa memory có kiểm chứng (gate 4). Ngoại lệ WebView2 đã chặn (dòng trên). Không file âm thanh nào được ghi hôm nay trong `%TEMP%`, `E:\Mori Data`, thư mục app (sau nhiều lượt nói)
 - [~] Khôi phục: crash worker — **TTS**: giết worker → tự dựng lại sau 1 s, sẵn sàng 5.4 s (đo 2026-11-13); **llama-server**: đã đo Phase 1 (Ready lại 6.3 s); **whisper-server**: spawn lại ở lượt sau. **Đổi thiết bị loa**: stream lỗi (rút tai nghe) hoặc thiết bị mặc định đổi → mở lại ở lượt kế tiếp (`player.rs`) — chờ người dùng thử. **Sleep/resume**: chờ người dùng thử
 - [x] Màn hình "sẵn sàng offline": nút 🔌 Offline trên khung chat — kiểm LLM đang chạy, đủ file model/runtime LLM/STT/TTS, DB; không gọi mạng
 - [ ] Security audit (agent `security-auditor`) — cuối Phase 6

@@ -152,6 +152,15 @@ A/B bằng `cargo test e2e_gate -- --ignored` (20 câu giọng thật) trong khi
 
 Lưu ý: lúc đo có **hai bộ model chạy cùng lúc** (app: 8B + Whisper + TTS, và bộ của test) nên e2e cao hơn số đo một bộ ở §5.1 (P95 câu ngắn 3.87–4.02 s so với 3.45–3.72 s) — đó là giới hạn của cách đo, không phải do avatar (chênh A/B chỉ +2.7 %). Khi rảnh nhân vật vẽ 15 FPS (đo 13–15). Người dùng thử trong app: 1 lượt, TTFT 430 ms, FPS 29.4 khi hoạt động.
 
+### 5.3. Tài nguyên & dự phòng (Phase 6, 2026-11-13)
+
+| Test (SPEC §19.5) | Kết quả |
+|---|---|
+| Idle 30 phút (app + avatar, đo mỗi phút) | RAM tiến trình Mori 7.93–7.97 GB suốt 27 phút (llama-server 6301, TTS 602, WebView 982–1020, mori.exe 44 MB); phút 28 Windows thu working set → 6.90 GB. Không tăng dần ✅ |
+| Không GPU (CPU fallback) | Bản llama.cpp Vulkan với GPU bị ẩn (`GGML_VK_VISIBLE_DEVICES`) tự chạy CPU: Qwen3-4B-Instruct pp 119 tok/s, tg 17.8 tok/s ✅ — máy không GPU nên bật Chế độ nhanh |
+| Worker TTS chết | Tự dựng lại sau 1 s, sẵn sàng 5.4 s ✅ |
+| Kết nối mạng (app chạy, WebView2 Fixed + firewall) | Chỉ nghe 127.0.0.1; 0 kết nối TCP/UDP ra ngoài loopback ✅ |
+
 ## 6. Kết luận (sơ bộ, 2026-11-12)
 
 - **LLM:** [ADR-0008](adr/0008-llm-8b-mac-dinh.md): **Qwen3-8B mặc định**, Qwen3-4B-Instruct-2507 làm chế độ nhanh (thay ADR-0004). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → người dùng chọn 8B mặc định.

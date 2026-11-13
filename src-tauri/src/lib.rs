@@ -894,6 +894,25 @@ fn exclude_from_wer() {
     }
 }
 
+/// ADR-0010: dùng WebView2 Fixed Version riêng của Mori (không tự cập nhật, đường dẫn exe riêng → firewall
+/// chặn ra ngoài được mà không đụng WebView2 của app khác). Không có thì dùng bản Evergreen của Windows.
+fn use_fixed_webview2(data: &std::path::Path) {
+    let fixed = std::fs::read_dir(data.join("runtime").join("webview2"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.join("msedgewebview2.exe").is_file());
+    match fixed {
+        Some(dir) => {
+            info!(dir = %dir.display(), "WebView2 Fixed Version");
+            // Edition 2021, gọi trước khi tạo cửa sổ/thread dùng env.
+            std::env::set_var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", dir);
+        }
+        None => warn!("không có WebView2 Fixed Version — dùng bản của Windows (có kết nối ra Microsoft, ADR-0010)"),
+    }
+}
+
 pub fn run() {
     let data = data_dir();
     let appender = tracing_appender::rolling::RollingFileAppender::builder()
@@ -911,6 +930,7 @@ pub fn run() {
     info!(data = %data.display(), "Mori khởi động");
     #[cfg(windows)]
     exclude_from_wer();
+    use_fixed_webview2(&data);
 
     tauri::Builder::default()
         .setup(move |app| {
