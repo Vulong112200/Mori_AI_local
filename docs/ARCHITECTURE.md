@@ -192,6 +192,15 @@ cargo test llm_gate -- --ignored --nocapture   # AI-06, AI-08, tự ghi nhớ (c
 npx tsc --noEmit
 ```
 
+**Cài thành app (bản release, 2026-11-13):**
+```powershell
+npm run tauri build -- --no-bundle                                  # target\release\mori.exe (tự chứa: UI, Live2D, worker TTS)
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1         # chép vào E:\Mori Data\runtime\app\, shortcut Start Menu + Startup
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -NoStartup   # không tự chạy khi đăng nhập
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -Uninstall   # gỡ app + shortcut, giữ dữ liệu
+```
+Đường dẫn mới chưa có luật firewall → script tự chạy `firewall.ps1` (UAC). Ghim taskbar: Windows 11 không cho chương trình tự ghim → mở Mori, chuột phải biểu tượng trên taskbar → Ghim. Không chạy song song bản cài với `npm run tauri dev` (2 bộ model). Cập nhật: build lại rồi chạy lại `install.ps1` (tắt Mori trước).
+
 - Lần đầu mở: trạng thái "Mori đang thức dậy…" ~6–9 s (nạp 8B + warm-up).
 - Cửa sổ avatar (label `avatar`): `src/AvatarView.tsx` + `src/live2d/avatar.ts`; mã Live2D chỉ nạp trong cửa sổ này (lazy). Đo FPS khi vẽ liên tục: `VITE_AVATAR_BENCH=1 npm run tauri dev` (log `avatar_fps`). Chụp lần lượt 7 biểu cảm + 8 hoạt cảnh: `VITE_AVATAR_DEMO=1 npm run tauri dev` → `E:\Mori Data\logs\avatar_snapshot_<tên>.png`.
 - Nếu `tauri dev` báo lỗi dev server: cổng 1420 còn bị Vite cũ giữ → tắt tiến trình `node … vite.js` đó.

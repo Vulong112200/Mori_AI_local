@@ -33,6 +33,8 @@ Yêu cầu nguyên văn của người dùng: xem ROADMAP "Phase 7". Đã làm (
 - `docs/CHARACTER_SPEC.md` (đặc tả nhân vật riêng cho họa sĩ).
 - Audit Phase 7: 0 Critical/High/Medium, 4 Low đã sửa.
 
+**Đã cài thành app** (2026-11-13): `E:\Mori Datauntimepp\mori.exe`, shortcut Start Menu + Startup (tự chạy khi đăng nhập). Cập nhật bản cài: tắt Mori → `npm run tauri build -- --no-bundle` → `scripts\install.ps1`. Đừng chạy `npm run tauri dev` khi bản cài đang chạy (2 bộ model, đo sai) — tắt bản cài trước khi đo/test model.
+
 ## 4. Việc tiếp theo
 
 1. **Người dùng thử** (gate 7): Ctrl+Space+Q từ app khác (giữ/bấm nhanh), biểu cảm khi trò chuyện, hoạt cảnh theo giờ, lời chào/nhắc nghỉ; rút/cắm tai nghe khi Mori đang nói; sleep/resume rồi nói tiếp.

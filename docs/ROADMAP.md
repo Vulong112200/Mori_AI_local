@@ -239,6 +239,7 @@ Việc:
 - [x] `docs/CHARACTER_SPEC.md`: đặc tả nhân vật riêng cho họa sĩ
 - [x] Tối ưu (người dùng yêu cầu: ít RAM, nhanh, chính xác) — [ADR-0014](adr/0014-toi-uu-tai-nguyen.md), MODEL_EVALUATION §5.4: llama-server `-fa on -ctk q8_0 -ctv q8_0 --cache-ram 1024` → **6319 → 5793 MB**, TTFT không đổi (373–393 ms). Đã thử và **không** dùng: tắt flash-attn (TTFT −70 ms nhưng +513 MB), `-lm none` (không giảm RAM), STT beam 3/2 (WER 9.5/10.2 % > 9.3 % — người dùng chọn không tăng WER), WebView2 `--renderer-process-limit=1` (không giảm số tiến trình)
 - [x] Kiểm: `cargo fmt/clippy/test` (34), `tsc` sạch; audit Phase 7: 0 Critical/High/Medium, 4 Low đã sửa (ADR-0013). FPS: rảnh 15, ngủ 11 (đo log). Chưa đo lại: 30 FPS khi hoạt động + TTFT A/B (logic FPS hoạt động không đổi so với Phase 5) — đo khi người dùng thử
+- [x] Cài thành app (người dùng yêu cầu 2026-11-13): bản release (`npm run tauri build -- --no-bundle`) + `scripts/install.ps1` → `E:\Mori Datauntimepp\mori.exe`, shortcut Start Menu + **tự chạy khi đăng nhập Windows** (thư mục Startup), luật firewall cho đường dẫn mới (146 luật). Mở từ Start Menu: Ready 6 s, phím tắt sẵn sàng, 11 tiến trình, **0 kết nối ra ngoài**, chỉ nghe 127.0.0.1. Ghim taskbar: người dùng tự ghim (Windows 11 chặn ghim bằng chương trình)
 
 ### Gate Phase 7
 - [ ] (Mang từ gate 6) **Người dùng** thử rút/cắm tai nghe khi Mori đang nói (loa mở lại ở lượt sau) và sleep/resume rồi nói tiếp
