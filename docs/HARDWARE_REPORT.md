@@ -61,6 +61,20 @@ RAM trống 7.8 GB, commit trống 3.0 GB, giới hạn commit đã tự nới l
 | WebView2 (gồm cả ứng dụng khác) | 1.3 GB |
 | Máy còn trống | 6.8 GB RAM, 0.8 GB commit (giới hạn tự nới 34 → 43.6 GB) |
 
+### 5.1. RAM hiện tại (Phase 6–7, 2026-11-13)
+
+Đo bằng Working Set / Private Bytes (MODEL_EVALUATION §5.3–5.4):
+
+| Tiến trình | RAM |
+|---|---|
+| llama-server Qwen3-8B (Vulkan, ctx 8192, KV q8_0 — ADR-0014) | 5.8 GB (trước tối ưu 6.3 GB) |
+| whisper-server large-v3 q5_0 | 2.3 GB khi đang dùng; tắt sau 5 phút rảnh |
+| TTS worker (Python, ZeroTTS int8) | 0.7–1.3 GB |
+| WebView2 của Mori (2 cửa sổ, 7 tiến trình) | 0.6–1.0 GB |
+| mori.exe | 0.05 GB |
+
+Hội thoại liên tục 30 phút: llama + whisper + TTS 9.36–9.40 GB (trước tối ưu), không tăng dần. Idle 30 phút: không tăng dần.
+
 ## 6. Ghi chú / vấn đề
 
 - Benchmark nên chạy khi **cắm sạc** và power plan "Best performance"; ghi điều kiện vào mỗi dòng kết quả.

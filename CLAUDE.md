@@ -10,7 +10,8 @@ Viết tài liệu và trao đổi với người dùng bằng **tiếng Việt*
 |---|---|
 | [docs/HANDOFF.md](docs/HANDOFF.md) | Luôn — bàn giao mới nhất: tiến độ, yêu cầu người dùng, việc tiếp theo |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Luôn — mục **Bàn giao** ở đầu, phase hiện tại, task kế tiếp |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Hệ thống **như đang xây**: thành phần AI, luồng, mã nguồn, lệnh IPC, bảo mật, cách chạy |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Hệ thống **như đang xây**: thành phần AI, mã nguồn, lệnh IPC, bảo mật, cách chạy/cài |
+| [docs/AI_SYSTEM.md](docs/AI_SYSTEM.md) | Logic AI hiện tại: một lượt hội thoại, prompt + ngân sách, việc nền, trí nhớ, chủ động, tham số đổi ở đâu |
 | [docs/SPEC.md](docs/SPEC.md) | Trước khi thiết kế/viết code — nguồn sự thật |
 | [docs/adr/](docs/adr/) | Trước khi đổi quyết định kỹ thuật |
 | [docs/MODEL_EVALUATION.md](docs/MODEL_EVALUATION.md) | Khi chọn/đo model |
@@ -67,4 +68,4 @@ npm run tauri dev                      # chạy app (Vite + Rust); app tự qu�
 cd src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test
 npx tsc --noEmit
 ```
-Tất cả phải sạch trước khi báo xong. Code: `src/` (React), `src-tauri/src/` (`lib.rs` lệnh IPC, `llm.rs` llama-server, `db.rs` SQLite, `prompt.rs`). Log app: `E:\Mori Data\logs\mori.<ngày>.log`; DB: `E:\Mori Data\database\mori.db`. Thay đổi `llm.rs` (spawn/cờ/env) phải giữ các biện pháp trong ADR-0009.
+Tất cả phải sạch trước khi báo xong. Code: `src/` (React: `App.tsx` chat, `AvatarView.tsx` + `live2d/avatar.ts` nhân vật), `src-tauri/src/` (`lib.rs` lệnh IPC + điều phối, `llm.rs` llama-server, `stt.rs`, `tts.rs`, `player.rs`, `audio.rs`, `speech.rs`, `prompt.rs`, `db.rs`, `avatar.rs`, `hotkey.rs`, `emotion.rs`, `proactive.rs`, `integrity.rs`) — bảng đầy đủ: ARCHITECTURE §6. Bản cài: `E:\Mori Data\runtime\app\mori.exe` (`scripts/install.ps1`) — tắt nó trước khi chạy `tauri dev` hoặc test model thật. Log app: `E:\Mori Data\logs\mori.<ngày>.log`; DB: `E:\Mori Data\database\mori.db`. Thay đổi `llm.rs` (spawn/cờ/env) phải giữ các biện pháp trong ADR-0009.

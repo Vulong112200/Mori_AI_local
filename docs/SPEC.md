@@ -3,7 +3,7 @@
 **Phiên bản:** 1.0 (đã rà soát, thay thế v0 — xem [SPEC_REVIEW.md](SPEC_REVIEW.md))
 **Trạng thái:** Phase 0 — Khảo sát & khả thi
 **Nền tảng:** Windows 11
-**Cập nhật:** 2026-11-11
+**Cập nhật:** 2026-11-13 (khớp ADR-0001…0014; trạng thái thực tế: [ARCHITECTURE.md](ARCHITECTURE.md), [AI_SYSTEM.md](AI_SYSTEM.md))
 
 > Quy ước: **PHẢI** = bắt buộc; **NÊN** = khuyến nghị; **[P0]** = cần kiểm chứng ở Phase 0. Thay đổi quyết định kỹ thuật → ghi ADR trong [adr/](adr/), rồi cập nhật tài liệu này.
 
@@ -15,7 +15,7 @@ Mori là trợ lý AI chạy hoàn toàn trên máy (local), đặt trên deskto
 
 - Nói chuyện tự nhiên bằng tiếng Việt, qua giọng nói hoặc văn bản.
 - Có tính cách nhất quán (bạn đồng hành thân thiện).
-- Nhớ những điều **người dùng đã duyệt**.
+- Tự ghi nhớ điều lâu dài về người dùng, **có báo + Hoàn tác**, người dùng xem/sửa/xóa được ([ADR-0012](adr/0012-tu-ghi-nho.md)).
 - Hiển thị nhân vật 2D (Live2D) động, nổi trên desktop.
 - Hỗ trợ lập trình, học tập, viết lách, xử lý sự cố, việc hằng ngày.
 - Không dùng dịch vụ AI đám mây, không API ngoài.
@@ -83,7 +83,7 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 └───────────────┬───────────────────────────── ▲ ────────────────────┘
                 │ typed commands               │ events (token, state, rms)
 ┌───────────────▼──────────────── Rust core ───┴────────────────────┐
-│ Conversation Manager · Audio (cpal capture, rodio playback)       │
+│ Conversation Manager · Audio (cpal capture + playback)            │
 │ Process Manager · Model Manager · SQLite (FTS5) · Settings · Log  │
 └──────┬───────────────────┬───────────────────────┬────────────────┘
        │ HTTP 127.0.0.1    │ HTTP 127.0.0.1        │ JSON Lines (stdio)
@@ -111,10 +111,10 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 |---|---|
 | Desktop UI | Chat, avatar, settings, quản lý memory, cửa sổ nổi |
 | Conversation Manager | Điều phối STT → LLM → TTS, ngắt lời, trạng thái |
-| Audio | Thu micro (cpal), phát audio (rodio), tính biên độ RMS cho lip-sync |
+| Audio | Thu micro và phát audio (cpal), tính biên độ RMS cho lip-sync |
 | Process Manager | Khởi động, health check, khởi động lại, tắt worker |
 | Model Manager | Manifest, checksum, kiểm tra offline |
-| Memory | SQLite + FTS5, đề xuất / duyệt / xóa memory |
+| Memory | SQLite + FTS5, tự ghi nhớ + Hoàn tác, sửa / xóa có kiểm chứng, tóm tắt hội thoại |
 | Settings | Lưu trong SQLite |
 | Logging | `tracing`, file log local, không ghi nội dung nhạy cảm |
 
@@ -133,7 +133,7 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 | STT | whisper.cpp (`whisper-server`) | Chốt runtime; model [P0] |
 | TTS | ZeroTTS int8 (dự phòng: VieNeu v3 Turbo) | Chốt — ADR-0005 |
 | Python (nếu cần) | 3.12 qua uv, venv riêng (thư viện TTS hỗ trợ 3.10–3.13, máy đang có 3.14) | Chốt |
-| Audio | cpal (thu), rodio (phát) | Chốt |
+| Audio | cpal (thu + phát; bỏ rodio — Phase 3) | Chốt |
 | DB | SQLite + FTS5 (`rusqlite`) | Chốt |
 | Log | `tracing` | Chốt |
 | VAD | Không có trong MVP | Hoãn (ADR-0003) |
@@ -144,7 +144,7 @@ Chi tiết đo được ghi trong [HARDWARE_REPORT.md](HARDWARE_REPORT.md).
 
 ### 5.1. Ứng viên
 
-**Đã chọn ([ADR-0008](adr/0008-llm-8b-mac-dinh.md)): Qwen3-8B Q4_K_M trên Vulkan** (TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s). **Chế độ nhanh:** Qwen3-4B-Instruct-2507 Q4_K_M (0.55 / 0.25 s, 23.7 tok/s).
+**Đã chọn ([ADR-0008](adr/0008-llm-8b-mac-dinh.md)): Qwen3-8B Q4_K_M trên Vulkan** (TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s). Chạy với `-c 8192 -np 1 -fa on -ctk q8_0 -ctv q8_0 --cache-ram 1024` ([ADR-0014](adr/0014-toi-uu-tai-nguyen.md): RAM 6.3 → 5.8 GB, TTFT không đổi). **Chế độ nhanh:** Qwen3-4B-Instruct-2507 Q4_K_M (0.55 / 0.25 s, 23.7 tok/s).
 
 | Model | Vai trò | Ghi chú |
 |---|---|---|
@@ -177,13 +177,13 @@ Xếp prompt từ **ổn định nhất** đến **thay đổi nhất** để KV
 
 ```text
 1. System prompt (quy tắc an toàn + personality.md)   ← cố định
-2. Memory đã duyệt liên quan                          ← ít đổi
+2. Ghi nhớ về người dùng (approved)                   ← ít đổi
 3. Tóm tắt hội thoại cũ (nếu có)                       ← ít đổi
 4. Các lượt gần đây                                    ← thêm dần
-5. Tin nhắn mới                                        ← mới
+5. Tin nhắn mới (đầu tin: dòng [Giờ máy: …], chỉ trong prompt) ← mới
 ```
 
-Không chèn timestamp hay dữ liệu thay đổi vào phần 1.
+Không chèn timestamp hay dữ liệu thay đổi vào phần 1–4: giờ máy chỉ gắn vào tin mới nhất, không lưu DB (Phase 7).
 
 ---
 
@@ -350,7 +350,7 @@ Quy tắc an toàn (không leo thang quyền, không chạy lệnh, chống prom
 ### 11.1. Các lớp
 
 - **Ngắn hạn:** hội thoại hiện tại (trong RAM + bảng `messages`).
-- **Dài hạn:** sở thích, dự án, quyết định kỹ thuật, bối cảnh cá nhân **đã được duyệt**.
+- **Dài hạn:** sở thích, dự án, quyết định kỹ thuật, bối cảnh cá nhân — Mori tự ghi, người dùng thấy ngay và hoàn tác/sửa/xóa được (ADR-0012).
 - **Tri thức:** tài liệu người dùng chọn nạp — **hoãn sau MVP**.
 
 ### 11.2. Lưu trữ
@@ -410,7 +410,7 @@ CREATE TABLE settings (
 - Xóa phải kiểm chứng: `secure_delete`, rebuild FTS, `VACUUM` khi xóa toàn bộ; có test đọc thô file DB không còn chuỗi đã xóa.
 - Sao lưu/khôi phục: SQLite Online Backup API ra `E:\Mori Data\backups\`.
 - Nội dung memory là **dữ liệu**, không phải chỉ thị (chống prompt injection).
-- Memory đã duyệt + tóm tắt hội thoại nằm trong tin `system` sau quy tắc + personality (§5.4 mục 2–3), đủ ngân sách thì đưa tất cả theo thứ tự tạo để KV cache ổn định. Tóm tắt: `conversations.summary` + `summary_upto` (số tin đầu đã tóm tắt), > 24 tin chưa tóm tắt thì gộp phần cũ, giữ 12 tin.
+- Ghi nhớ (approved) + tóm tắt hội thoại nằm trong tin `system` sau quy tắc + personality (§5.4 mục 2–3), đủ ngân sách thì đưa tất cả theo thứ tự tạo để KV cache ổn định. Tóm tắt: `conversations.summary` + `summary_upto` (số tin đầu đã tóm tắt), > 24 tin chưa tóm tắt thì gộp phần cũ, giữ 12 tin.
 - Xóa memory không xóa tin nhắn gốc trong hội thoại, tóm tắt, hay bản sao lưu cũ chứa nó — UI ghi rõ.
 
 ---
@@ -491,7 +491,7 @@ Các `type` khác: `cancel`, `health`, `shutdown`.
 
 - Mọi service bind `127.0.0.1`; không nhận kết nối LAN.
 - Micro: trạng thái hiện rõ, Stop dừng thu ngay.
-- Phím gọi toàn cục Ctrl+Space+Q (ADR-0013): low-level keyboard hook chỉ xét 3 phím Ctrl/Space/Q, không lưu/không log/không gửi phím nào, chỉ nuốt Q khi đang giữ Ctrl+Space. Thời gian rảnh (nhắc nghỉ) lấy bằng `GetLastInputInfo` — chỉ là một con số.
+- Phím gọi toàn cục Ctrl+Space+Q (ADR-0013): low-level keyboard hook chỉ xét phím Q (Ctrl/Space đọc trạng thái thật bằng `GetAsyncKeyState`), bỏ phím giả lập, không lưu/không log/không gửi phím nào, chỉ nuốt Q khi đang giữ Ctrl+Space. Thời gian rảnh (nhắc nghỉ) lấy bằng `GetLastInputInfo` — chỉ là một con số.
 - Model file kiểm SHA-256 theo manifest; worker Python chạy với `HF_HUB_OFFLINE=1`.
 - Tauri: CSP chặt, không bật plugin `shell`, capability tối thiểu.
 - AI không chạy lệnh shell, không truy cập file tự do.
@@ -505,16 +505,16 @@ Cài đặt và tải model có thể cần Internet. Sau đó hội thoại c�
 
 ## 15. Quản lý tài nguyên
 
-### 15.1. Ngân sách RAM (ước tính, chờ đo)
+### 15.1. Ngân sách RAM
 
-| Thành phần | Ước tính |
-|---|---:|
-| Windows + nền | 6–9 GB |
-| LLM 4B Q4 + KV 8K | 3–5 GB |
-| STT (small → large-v3-turbo) | 0.5–2 GB |
-| TTS (+ Python runtime) | 0.5–2.5 GB |
-| UI + avatar | 0.3–1 GB |
-| DB + buffer | 0.2–0.5 GB |
+| Thành phần | Ước tính ban đầu | Đo thật (2026-11-13, MODEL_EVALUATION §5.3–5.4) |
+|---|---:|---:|
+| Windows + nền | 6–9 GB | — |
+| LLM (thực tế 8B Q4 + KV q8_0 8K) | 3–5 GB (4B) | **5.8 GB** |
+| STT (thực tế large-v3, lazy) | 0.5–2 GB | 2.3 GB khi dùng, 0 sau 5 phút rảnh |
+| TTS (+ Python runtime) | 0.5–2.5 GB | 0.7–1.3 GB |
+| UI + avatar (2 cửa sổ WebView2) | 0.3–1 GB | 0.6–1.0 GB |
+| mori.exe (Rust, DB) | 0.2–0.5 GB | 0.05 GB |
 
 ### 15.2. Chính sách
 
@@ -587,9 +587,10 @@ Tiến độ chi tiết và checkbox: [ROADMAP.md](ROADMAP.md). Mỗi phase ch�
 | 1 | Tauri shell, Rust process manager, llama-server, chat UI streaming, dừng sinh, **personality prompt**, SQLite (conversations/messages) | Chat văn bản chạy offline, đúng giọng Mori |
 | 2 | Thu micro, push-to-talk, whisper-server, xem/sửa transcript, chọn thiết bị | Nhận dạng ổn trên bộ test 100 câu |
 | 3 | TTS worker, streaming theo câu, phát audio, ngắt lời | Giọng tự nhiên, không lặp/thiếu đoạn |
-| 4 | Memory: đề xuất/duyệt/sửa/xóa, FTS5, tóm tắt hội thoại, sao lưu | Memory test + xóa có kiểm chứng đạt |
+| 4 | Memory: tự ghi nhớ + Hoàn tác (ADR-0012), sửa/xóa, FTS5, tóm tắt hội thoại, sao lưu | Memory test + xóa có kiểm chứng đạt |
 | 5 | Live2D, cửa sổ trong suốt, trạng thái, lip-sync RMS, hotkey | Avatar ổn định, không làm chậm AI đáng kể |
 | 6 | Benchmark đầy đủ, kiểm tra offline, khôi phục lỗi, security audit, regression | Mọi tiêu chí chấp nhận quan trọng đạt |
+| 7 (sau MVP) | Phím gọi toàn cục, biểu cảm theo cảm xúc, hoạt cảnh theo giờ, Mori chủ động (ADR-0013), tối ưu RAM (ADR-0014) | Người dùng thấy "sống" hơn; avatar 30 FPS, TTFT không tăng > 10 % |
 
 ---
 
@@ -664,7 +665,7 @@ Ngưỡng: trung bình ≥ 4/5 cho trải nghiệm cốt lõi, không lỗi nghi
 | TTS chưa đủ tự nhiên | Cao | So sánh 3 ứng viên, nghe thực tế |
 | STT sai thuật ngữ | Cao | large-v3-turbo, PhoWhisper, prompt từ vựng, cho sửa transcript |
 | Nhiều model chiếm RAM / chạm commit limit | Cao | Lazy load, nhả khi nghỉ, tăng pagefile |
-| Lưu memory ngoài ý muốn | Cao | Chỉ đề xuất, duyệt mới lưu, xóa kiểm chứng |
+| Lưu memory ngoài ý muốn | Cao | Tự ghi nhưng báo ngay + Hoàn tác, lọc bí mật (`looks_secret`), không trích đoạn dán/câu hỏi, xóa kiểm chứng (ADR-0012) |
 | Python 3.14 không tương thích thư viện TTS | Trung bình | uv venv 3.12 riêng |
 | TTS tự tải model ngầm | Trung bình | Tải trước, pin sha256, `HF_HUB_OFFLINE=1` |
 | KorvaTTS non trẻ (v0.1.0) | Trung bình | Có 2 ứng viên khác |

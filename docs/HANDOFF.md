@@ -1,6 +1,6 @@
 # Bàn giao cho session tiếp theo (2026-11-13, cuối ngày)
 
-> Đọc file này trước, rồi [CLAUDE.md](../CLAUDE.md) (luật bất biến), [ROADMAP.md](ROADMAP.md) (checkbox chi tiết), [ARCHITECTURE.md](ARCHITECTURE.md) (hệ thống đang chạy). Trao đổi với người dùng bằng tiếng Việt.
+> Đọc file này trước, rồi [CLAUDE.md](../CLAUDE.md) (luật bất biến), [ROADMAP.md](ROADMAP.md) (checkbox chi tiết), [AI_SYSTEM.md](AI_SYSTEM.md) (logic AI hiện tại), [ARCHITECTURE.md](ARCHITECTURE.md) (mã nguồn, IPC, cách chạy). Trao đổi với người dùng bằng tiếng Việt.
 
 ## 1. Người dùng & cách làm việc
 
@@ -26,14 +26,14 @@
 Yêu cầu nguyên văn của người dùng: xem ROADMAP "Phase 7". Đã làm (chi tiết + số đo: ROADMAP Phase 7, ADR-0013, ADR-0014, MODEL_EVALUATION §5.4):
 - **Phím Ctrl+Space+Q** toàn cục (`hotkey.rs`): giữ = nói, bấm nhanh = bật nghe / bấm lại = gửi. Chỉ xét phím Q, Ctrl/Space đọc bằng `GetAsyncKeyState`, bỏ phím giả lập.
 - **Biểu cảm theo cảm xúc** (`emotion.rs` → `avatar-emotion`), **mọi nhóm motion** Koharu, động tác ngẫu nhiên khi rảnh.
-- **Hoạt cảnh theo giờ máy** (`AvatarView.tsx`, `avatar.ts`): ngủ, thức dậy, ăn, làm việc, học, nhạc, chơi pompom, buồn ngủ + đạo cụ emoji + bong bóng chữ. Chụp từng cảnh: `VITE_AVATAR_DEMO=1 npm run tauri dev` → `E:\Mori Data\logsvatar_snapshot_<tên>.png`.
+- **Hoạt cảnh theo giờ máy** (`AvatarView.tsx`, `avatar.ts`): ngủ, thức dậy, ăn, làm việc, học, nhạc, chơi pompom, buồn ngủ + đạo cụ emoji + bong bóng chữ. Chụp từng cảnh: `VITE_AVATAR_DEMO=1 npm run tauri dev` → `E:\Mori Data\logs\avatar_snapshot_<tên>.png`.
 - **Mori chủ động** (`proactive.rs`): chào khi mở máy (≥ 4 h từ lần trước, chạy như việc nền), nhắc nghỉ sau 90 phút; checkbox "Mori chủ động". Đã chào thật lúc test (setting `last_greet` đã ghi → lần chào kế tiếp sau 4 h).
 - **Giờ máy trong prompt** (chỉ prompt, không DB) + personality (≤ 1 emoji, nhắc điều đã nhớ). `llm_gate` đạt.
 - **Tối ưu RAM** (ADR-0014): llama-server `-fa on -ctk q8_0 -ctv q8_0 --cache-ram 1024` → 6319 → 5793 MB, TTFT không đổi. Đã thử, không dùng: tắt flash-attn, `-lm none`, STT beam 3/2 (WER tăng — người dùng chọn không tăng WER), WebView2 `--renderer-process-limit=1`.
 - `docs/CHARACTER_SPEC.md` (đặc tả nhân vật riêng cho họa sĩ).
 - Audit Phase 7: 0 Critical/High/Medium, 4 Low đã sửa.
 
-**Đã cài thành app** (2026-11-13): `E:\Mori Datauntimepp\mori.exe`, shortcut Start Menu + Startup (tự chạy khi đăng nhập). Cập nhật bản cài: tắt Mori → `npm run tauri build -- --no-bundle` → `scripts\install.ps1`. Đừng chạy `npm run tauri dev` khi bản cài đang chạy (2 bộ model, đo sai) — tắt bản cài trước khi đo/test model.
+**Đã cài thành app** (2026-11-13): `E:\Mori Data\runtime\app\mori.exe`, shortcut Start Menu + Startup (tự chạy khi đăng nhập). Cập nhật bản cài: tắt Mori → `npm run tauri build -- --no-bundle` → `scripts\install.ps1`. Đừng chạy `npm run tauri dev` khi bản cài đang chạy (2 bộ model, đo sai) — tắt bản cài trước khi đo/test model.
 
 ## 4. Việc tiếp theo
 
