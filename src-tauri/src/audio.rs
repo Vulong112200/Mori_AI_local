@@ -73,6 +73,11 @@ impl Recorder {
         Ok(())
     }
 
+    /// Đang thu hoặc đang mở micro (khóa đang bận = `start` đang mở thiết bị).
+    pub fn is_recording(&self) -> bool {
+        self.0.try_lock().map_or(true, |g| g.is_some())
+    }
+
     /// Tắt micro, trả PCM mono 16 kHz. Gọi khi không thu cũng không sao (trả lỗi).
     pub fn stop(&self) -> Result<Vec<f32>, String> {
         let take = self.0.lock().unwrap().take().ok_or("micro chưa bật")?;

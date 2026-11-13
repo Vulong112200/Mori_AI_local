@@ -648,6 +648,43 @@ fn after_reply(app: tauri::AppHandle, conversation_id: String, user: Message) {
     });
 }
 
+/// Slot cho việc nền dùng model (tự nhớ, tóm tắt, lời chào): nhường lượt người dùng, bị hủy (`cancel_background`)
+/// ngay khi người dùng nói/gửi; tự gỡ khi ra khỏi scope.
+struct BackgroundSlot<'a> {
+    slot: &'a Mutex<Option<Arc<Notify>>>,
+    stop: Arc<Notify>,
+}
+
+impl<'a> BackgroundSlot<'a> {
+    /// Kiểm + đăng ký dưới cùng khóa: người dùng đang có lượt → `None`; việc nền cũ → hủy.
+    fn acquire(
+        generation: &Mutex<Option<Arc<Notify>>>,
+        background: &'a Mutex<Option<Arc<Notify>>>,
+    ) -> Option<Self> {
+        let mut g = background.lock().unwrap();
+        if generation.lock().unwrap().is_some() {
+            return None;
+        }
+        let stop = Arc::new(Notify::new());
+        if let Some(old) = g.replace(stop.clone()) {
+            old.notify_one();
+        }
+        Some(Self {
+            slot: background,
+            stop,
+        })
+    }
+}
+
+impl Drop for BackgroundSlot<'_> {
+    fn drop(&mut self) {
+        let mut g = self.slot.lock().unwrap();
+        if g.as_ref().is_some_and(|n| Arc::ptr_eq(n, &self.stop)) {
+            g.take();
+        }
+    }
+}
+
 /// Gọi model cho việc nền (tự nhớ, tóm tắt): `None` nếu bị hủy vì người dùng nói/gửi.
 async fn background_chat(
     llm: &Llm,
@@ -662,24 +699,11 @@ async fn background_chat(
             content: content.as_str().into(),
         })
         .collect();
-    let stop = Arc::new(Notify::new());
-    {
-        // Kiểm + đăng ký dưới cùng khóa: người dùng đang có lượt → nhường; việc nền cũ → hủy.
-        let mut g = background.lock().unwrap();
-        if generation.lock().unwrap().is_some() {
-            return Ok(None);
-        }
-        if let Some(old) = g.replace(stop.clone()) {
-            old.notify_one();
-        }
-    }
-    let result = llm.chat_with(&chat, &stop, Some(0.0), |_| {}).await;
-    {
-        let mut g = background.lock().unwrap();
-        if g.as_ref().is_some_and(|n| Arc::ptr_eq(n, &stop)) {
-            g.take();
-        }
-    }
+    let Some(slot) = BackgroundSlot::acquire(generation, background) else {
+        return Ok(None);
+    };
+    let result = llm.chat_with(&chat, &slot.stop, Some(0.0), |_| {}).await;
+    drop(slot);
     let (text, stopped) = result?;
     Ok((!stopped && !text.trim().is_empty()).then_some(text))
 }

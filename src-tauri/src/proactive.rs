@@ -1,7 +1,7 @@
 //! Mori chủ động (người dùng cho phép 2026-11-13 — ADR-0013, thay quy tắc "không tự bắt chuyện"):
 //! chào theo giờ khi mở máy (gọi tên, nhắc điều đã nhớ) và nhắc nghỉ khi dùng máy liên tục lâu.
 //! Tắt bằng setting `proactive = 0`. Bong bóng nói bâng quơ theo hoạt cảnh do UI avatar tự làm (không gọi model).
-use crate::{avatar, context, emotion, prompt, speech, AppState, GenerationSlot};
+use crate::{avatar, context, emotion, prompt, speech, AppState, BackgroundSlot};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -70,7 +70,10 @@ pub fn part_of_day(hour: u16) -> &'static str {
 /// Mori nói một câu ngắn (bong bóng + tiếng nếu bật "Mori nói"), chỉ khi không có lượt nào đang chạy.
 fn say(app: &AppHandle, text: &str) {
     let st = app.state::<AppState>();
-    let busy = st.generation.lock().unwrap().is_some() || st.player.is_playing();
+    // Không chen ngang: đang trả lời, đang nói, hoặc micro đang thu (tiếng TTS lọt vào bản ghi — audit Phase 7).
+    let busy = st.generation.lock().unwrap().is_some()
+        || st.player.is_playing()
+        || st.recorder.is_recording();
     let _ = app.emit_to(avatar::LABEL, "avatar-say", text);
     let _ = app.emit_to(avatar::LABEL, "avatar-emotion", emotion::of(text));
     if !busy && st.voice_out() {
@@ -103,7 +106,8 @@ pub fn greet(app: AppHandle) {
         let Ok(Some(conv)) = st.db.latest_conversation() else {
             return;
         };
-        let Ok(slot) = GenerationSlot::acquire(&st.generation) else {
+        // Như việc nền: người dùng nói/gửi lúc đang chào → lời chào bị hủy ngay, lượt của họ không bị chặn.
+        let Some(slot) = BackgroundSlot::acquire(&st.generation, &st.background) else {
             return; // người dùng đã bắt đầu nói chuyện
         };
         let c = clock();
@@ -136,6 +140,9 @@ pub fn greet(app: AppHandle) {
                 return;
             }
         };
+        if st.generation.lock().unwrap().is_some() {
+            return; // người dùng vừa gửi đúng lúc chào xong: không chen câu chào vào sau tin của họ
+        }
         let _ = st.db.set_setting("last_greet", &now.to_string());
         match st.db.add_message(&conv, "assistant", &text) {
             Ok(msg) => {
