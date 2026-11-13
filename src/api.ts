@@ -74,3 +74,32 @@ export const onTtsStatus = (cb: (s: "loading" | "ready" | "error") => void): Pro
 
 export const onLlmStatus = (cb: (s: LlmStatus) => void): Promise<UnlistenFn> =>
   listen<LlmStatus>("llm-status", (e) => cb(e.payload));
+
+// Memory (SPEC §11, ADR-0012): Mori tự ghi nhớ sau mỗi lượt (+ lệnh "nhớ là …", nút ⭐); người dùng hoàn tác/sửa/xóa.
+export type MemoryCategory = "so_thich" | "du_an" | "ca_nhan" | "khac";
+export const MEMORY_CATEGORIES: Record<MemoryCategory, string> = {
+  so_thich: "Sở thích",
+  du_an: "Dự án",
+  ca_nhan: "Cá nhân",
+  khac: "Khác",
+};
+export const MAX_MEMORY_CHARS = 500;
+export interface Memory {
+  id: string;
+  category: MemoryCategory;
+  content: string;
+  status: "proposed" | "approved";
+  created_at: string;
+}
+export const listMemories = () => invoke<Memory[]>("list_memories");
+export const onMemorySaved = (cb: (m: Memory) => void): Promise<UnlistenFn> =>
+  listen<Memory>("memory-saved", (e) => cb(e.payload));
+export const starMessage = (messageId: string) => invoke<Memory>("star_message", { messageId });
+export const updateMemory = (id: string, content: string, category: MemoryCategory, approved: boolean) =>
+  invoke<void>("update_memory", { id, content, category, approved });
+export const deleteMemory = (id: string) => invoke<void>("delete_memory", { id });
+export const deleteAllMemories = () => invoke<void>("delete_all_memories");
+export const backupDb = () => invoke<string>("backup_db");
+export const listBackups = () => invoke<string[]>("list_backups");
+/** Trả tên bản sao lưu tự tạo ngay trước khi khôi phục. */
+export const restoreBackup = (name: string) => invoke<string>("restore_backup", { name });

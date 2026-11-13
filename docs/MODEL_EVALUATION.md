@@ -125,6 +125,21 @@ Các cột Tự nhiên / Phát âm / Nhịp / vi-en: **người dùng nghe và c
 
 Thời gian "tới hết câu đầu" phụ thuộc độ dài câu đầu model sinh ra → Phase 3 nên cắt cả ở dấu phẩy nếu câu đầu dài.
 
+### 5.1. Trong app (gate Phase 3, 2026-11-13)
+
+**Trong app thật, trước khi sửa** (log `micro tắt` → `phát câu đầu`, hội thoại 40 tin): 7.6–8 s (12/11) → nguyên nhân: cửa sổ lịch sử trượt mỗi lượt → xử lý lại ~1 300 token (5.3–5.9 s); sau khi ngắt lời request làm ấm rơi sang slot khác (TTFT 2.6–3.1 s); câu đầu dài 71–123 ký tự (1.8–2.6 s); lượt đầu sau khi mở app cache lạnh (TTFT 3.3 s).
+
+Sửa: cửa sổ nhảy khối 12 tin, làm ấm prompt sau mỗi lượt + khi model sẵn sàng, llama-server `-np 1`, câu đầu cắt ở dấu phẩy (≥ 30 ký tự) / tối đa 50 ký tự. `--cache-reuse 256` đã thử: KV shift 2–3 s → không dùng.
+
+**Sau khi sửa** — `cargo test e2e_gate -- --ignored --nocapture`: đúng các thành phần của app (whisper-server large-v3 Vulkan → llama-server Qwen3-8B với bản sao lịch sử thật 40+ tin → cắt câu → ZeroTTS int8 chunk đầu), 20 câu giọng thật người dùng thu (mỗi nhóm 4 câu), nghỉ 2 s giữa các lượt. Không tính micro tắt (log 35–85 ms) và loa (phát ngay khi có chunk).
+
+| Ngày | STT | e2e TB | e2e P95 (n=20) | P95 audio ≤ 5 s (n=17) | max |
+|---|---|---|---|---|---|
+| 2026-11-13 | 1.22–2.24 s | **2.96 s** | **3.45 s** ✅ | 3.24 s | 4.22 s (s06, STT 2.24 s) |
+| 2026-11-13 (lần 2, sau sửa audit: làm ấm 1 request/lúc) | 1.29–2.04 s | **3.27 s** | **3.72 s** ✅ | 3.72 s | 3.87 s |
+
+Câu nói dài (7–11 s audio) trong app: STT 2.7–2.8 s → e2e có thể > 4 s; giới hạn của large-v3 (ADR-0011), không thuộc phạm vi sửa ở đây.
+
 ## 6. Kết luận (sơ bộ, 2026-11-12)
 
 - **LLM:** [ADR-0008](adr/0008-llm-8b-mac-dinh.md): **Qwen3-8B mặc định**, Qwen3-4B-Instruct-2507 làm chế độ nhanh (thay ADR-0004). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → người dùng chọn 8B mặc định.

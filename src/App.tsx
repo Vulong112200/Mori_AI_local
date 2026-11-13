@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import * as api from "./api";
+import Memories from "./Memories";
 import type { LlmStatus, Message, Mic, Sample } from "./api";
 
 type MicState = "idle" | "listening" | "transcribing";
@@ -40,6 +41,10 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [ttsStatus, setTtsStatus] = useState<"loading" | "ready" | "error" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showMemories, setShowMemories] = useState(false);
+  const [proposed, setProposed] = useState(0); // số đề xuất ghi nhớ chờ duyệt
+  // Ghi nhớ vừa lưu (để Hoàn tác).
+  const [remembered, setRemembered] = useState<api.Memory[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const [mics, setMics] = useState<Mic[]>([]);
@@ -82,6 +87,7 @@ export default function App() {
     api.onLlmStatus(setStatus).then((u) => unlisten.push(u));
     api.onTtsPlaying(setSpeaking).then((u) => unlisten.push(u));
     api.onTtsStatus(setTtsStatus).then((u) => unlisten.push(u));
+    api.onMemorySaved(showRemembered).then((u) => unlisten.push(u));
     api
       .init()
       .then((s) => {
@@ -96,6 +102,7 @@ export default function App() {
       })
       .catch((e) => setError(String(e)));
     api.listMics().then(setMics, () => {});
+    api.listMemories().then((l) => setProposed(l.filter((m) => m.status === "proposed").length), () => {});
     return () => unlisten.forEach((u) => u());
   }, []);
 
@@ -171,6 +178,26 @@ export default function App() {
       setError(String(e));
     } finally {
       setMicState("idle");
+    }
+  }
+
+  function showRemembered(m: api.Memory) {
+    setRemembered((r) => [...r.filter((x) => x.id !== m.id), m].slice(-5));
+    setTimeout(() => setRemembered((r) => r.filter((x) => x.id !== m.id)), 30000);
+  }
+
+  async function undoRemember(m: api.Memory) {
+    await api.deleteMemory(m.id).then(
+      () => setRemembered((r) => r.filter((x) => x.id !== m.id)),
+      (e) => setError(`Chưa hoàn tác được: ${e}`),
+    );
+  }
+
+  async function star(id: string) {
+    try {
+      showRemembered(await api.starMessage(id));
+    } catch (e) {
+      setError(String(e));
     }
   }
 
@@ -335,6 +362,18 @@ export default function App() {
           </button>
         )}
         <button
+          onClick={() => setShowMemories(true)}
+          title="Xem, duyệt, sửa, xóa những điều Mori ghi nhớ"
+          className="relative rounded-lg px-2.5 py-1.5 text-xs text-slate-600 hover:bg-pink-100"
+        >
+          ⭐ Ghi nhớ
+          {proposed > 0 && (
+            <span className="ml-1 rounded-full bg-amber-400 px-1.5 text-[10px] font-semibold text-white" aria-label={`${proposed} đề xuất chờ duyệt`}>
+              {proposed}
+            </span>
+          )}
+        </button>
+        <button
           onClick={startNew}
           disabled={generating}
           className="rounded-lg px-2.5 py-1.5 text-xs text-slate-600 hover:bg-pink-100 disabled:opacity-40"
@@ -348,7 +387,7 @@ export default function App() {
           <p className="mt-16 text-center text-sm text-slate-400">Chào bạn! Mình là Mori. Hôm nay bạn muốn nói chuyện gì nè?</p>
         )}
         {messages.map((m) => (
-          <Bubble key={m.id} role={m.role} text={m.content} />
+          <Bubble key={m.id} role={m.role} text={m.content} onStar={m.role === "user" && !m.id.startsWith("pending-") ? () => star(m.id) : undefined} />
         ))}
         {generating && <Bubble role="assistant" text={streaming || "…"} />}
         <div ref={bottomRef} />
@@ -390,6 +429,18 @@ export default function App() {
           </div>
         </section>
       )}
+
+      {remembered.map((m) => (
+        <p key={m.id} role="status" className="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+          <span aria-hidden>⭐</span>
+          <span className="flex-1">
+            Mori đã nhớ: <span className="text-slate-800">{m.content}</span>
+          </span>
+          <button onClick={() => undoRemember(m)} className="rounded-md px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100">
+            Hoàn tác
+          </button>
+        </p>
+      ))}
 
       {error && (
         <p role="alert" className="mx-4 mb-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
@@ -446,14 +497,25 @@ export default function App() {
           </button>
         )}
       </form>
+      {showMemories && <Memories onClose={() => setShowMemories(false)} onCount={setProposed} />}
     </div>
   );
 }
 
-function Bubble({ role, text }: { role: Message["role"]; text: string }) {
+function Bubble({ role, text, onStar }: { role: Message["role"]; text: string; onStar?: () => void }) {
   const mine = role === "user";
   return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+    <div className={`group flex items-center gap-1 ${mine ? "justify-end" : "justify-start"}`}>
+      {onStar && (
+        <button
+          onClick={onStar}
+          title="Nhờ Mori ghi nhớ điều này"
+          aria-label="Ghi nhớ tin nhắn này"
+          className="rounded-full px-1.5 text-sm opacity-30 transition group-hover:opacity-80 hover:!opacity-100 focus:opacity-100"
+        >
+          ⭐
+        </button>
+      )}
       <div
         className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
           mine ? "rounded-br-md bg-pink-500 text-white" : "rounded-bl-md bg-white text-slate-800"

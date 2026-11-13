@@ -13,12 +13,12 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 | Chức năng AI | Đã chọn | Chạy trên | Số đo thật (máy đích) | ADR | Trạng thái |
 |---|---|---|---|---|---|
 | **Não (LLM)** | Qwen3-8B Q4_K_M · *chế độ nhanh:* Qwen3-4B-Instruct-2507 | llama.cpp b12284 **Vulkan** (iGPU) | TTFT 1.16 s lạnh / 0.40 s ấm, 11.8 tok/s, RAM 6.2 GB | [0008](adr/0008-llm-8b-mac-dinh.md) | ✅ **Đã tích hợp vào app (Phase 1)** |
-| **Tai (STT)** | Whisper **large-v3** q5_0 | whisper.cpp v1.9.5 **tự build Vulkan** | **Giọng thật 100 câu: WER 20.6 %** (số → chữ), 1.77 s TB / 2.41 s P95 | [0007](adr/0007-chon-stt.md), [0011](adr/0011-stt-large-v3.md) | Đang chạy trong app (Phase 2) |
-| **Giọng (TTS)** | ZeroTTS 0.1.5 **int8**, giọng `maichi` | ONNX Runtime CPU (Python 3.12) | Chunk đầu 0.06 s, RTF 0.31, RAM 0.82 GB | [0005](adr/0005-chon-tts.md) | Đã đo, chưa tích hợp (Phase 3) |
+| **Tai (STT)** | Whisper **large-v3** q5_0 | whisper.cpp v1.9.5 **tự build Vulkan** | **Giọng thật 100 câu (thu lại, micro đã sửa): WER 9.3 %** (lần thu đầu 20.6 %), 1.77 s TB / 2.41 s P95 | [0007](adr/0007-chon-stt.md), [0011](adr/0011-stt-large-v3.md) | Đang chạy trong app (Phase 2) |
+| **Giọng (TTS)** | ZeroTTS 0.1.5 **int8**, 8 giọng, mặc định `maichi` | ONNX Runtime CPU (Python 3.12, worker JSON Lines) | Chunk đầu P95 181–244 ms (50 lượt), RAM 1.1 GB | [0005](adr/0005-chon-tts.md) | Chạy trong app (Phase 3, gate đạt) |
 | **Hình (Avatar)** | Live2D Cubism SDK for Web; dev dùng mẫu **Koharu** | WebGL trong WebView2 | — | [0006](adr/0006-license-live2d.md) | Chưa làm (Phase 5) |
-| **Trí nhớ** | SQLite + FTS5, người dùng duyệt | Rust (rusqlite) | — | SPEC §11 | Bảng hội thoại xong; memory ở Phase 4 |
+| **Trí nhớ** | SQLite + FTS5 (không dấu), người dùng duyệt; tóm tắt hội thoại dài | Rust (rusqlite) | Xóa có kiểm chứng (test đọc thô file + WAL) | SPEC §11 | Tự ghi nhớ (ADR-0012), chờ người dùng thử |
 
-**End-to-end đo thật** (wav → STT → LLM 8B tới hết câu đầu → TTS chunk đầu, 6 lượt): **TB 2.63 s, max 3.59 s** (mục tiêu ≤ 4 s), **0 kết nối mạng ra ngoài loopback**.
+**End-to-end đo thật** — script Phase 0 (6 lượt): TB 2.63 s, max 3.59 s, 0 kết nối ra ngoài loopback. **Trong app** (`cargo test e2e_gate -- --ignored`, 20 câu giọng thật, lịch sử thật): **P95 3.45–3.72 s**, max 3.87 s (mục tiêu ≤ 4 s) — MODEL_EVALUATION §5.1.
 
 ---
 
@@ -31,15 +31,20 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 │   api.ts : chỉ gọi lệnh Rust (invoke) + nhận Channel/event — KHÔNG tự gọi model   │
 │        │ invoke: init · send_message · stop_generation · set_fast_mode ·          │
 │        │         new_conversation · list_mics · set_mic · start/stop/cancel_listening │
-│        │         event: "llm-status"                                              │
+│        │         set_voice_out · set_tts_voice · list/star/update/delete(_all)_memor… │
+│        │         backup_db · list_backups · restore_backup                        │
+│        │         event: "llm-status" · "tts-status" · "tts-playing" · "tts-level"  │
+│   Memories.tsx: panel Ghi nhớ (duyệt/sửa/xóa) + sao lưu/khôi phục                 │
 │ ───────▼──────────────────────────────────────────────────────────────────────── │
 │ Rust core (src-tauri/src/)                                                        │
 │   lib.rs    lệnh IPC, kiểm tra đầu vào, slot 1-lượt-sinh, logging                 │
 │   llm.rs    supervisor llama-server + stream SSE + Job Object                     │
 │   audio.rs  cpal thu micro → RAM, resample 16 kHz, WAV trong RAM                  │
 │   stt.rs    whisper-server lazy (tắt sau 5 phút rảnh), request-path bí mật       │
-│   prompt.rs quy tắc an toàn (cố định) + personality + cắt lịch sử                 │
-│   db.rs     SQLite: conversations, messages, settings (migration user_version)    │
+│   prompt.rs an toàn + personality + memory + tóm tắt + cửa sổ lịch sử theo khối   │
+│   memory.rs nhận lệnh "nhớ là …" · auto_remember (lib.rs) tự trích ghi nhớ        │
+│   speech.rs cắt câu từ stream LLM · tts.rs worker TTS · player.rs cpal phát       │
+│   db.rs     SQLite v2: conversations(+summary), messages, settings, memories+FTS5 │
 └───────┬───────────────────────────────────────────────────────────────────────────┘
         │ HTTP 127.0.0.1:<cổng ngẫu nhiên>, Bearer <key ngẫu nhiên 128 bit>
 ┌───────▼───────────────┐   (Phase 2, đang chạy)      (Phase 3)
@@ -53,12 +58,15 @@ Mori là cô bạn đồng hành AI **nữ, chibi, dễ thương**, chạy **100
 ## 3. Luồng một tin nhắn (Phase 1 — đang chạy)
 
 1. Người dùng gõ → `send_message(conversation_id, text, Channel)`.
-2. Rust kiểm tra: không rỗng, ≤ 8.000 ký tự, model đang **Ready**, không có lượt sinh khác (`GenerationSlot`).
-3. Lưu tin nhắn user vào SQLite → đọc lịch sử.
-4. `prompt::build`: `[system = SAFETY + personality] + lịch sử` (tối đa 24 tin, ≤ 12.000 ký tự, luôn giữ tin mới nhất). Thứ tự cố định → llama-server tái dùng KV cache (TTFT ấm ~0.4 s).
+2. Rust kiểm tra: không rỗng, ≤ 12.000 ký tự, model đang **Ready**, không có lượt sinh khác (`GenerationSlot`).
+3. Lưu tin nhắn user vào SQLite (khớp lệnh "nhớ là …" → tạo đề xuất ghi nhớ, báo UI qua Channel) → `context()`: memory đã duyệt + tóm tắt + các tin chưa tóm tắt.
+4. `prompt::build`: `[system = SAFETY + personality + ghi nhớ đã duyệt (≤ 2.000 ký tự, vượt thì FTS5 theo tin mới) + tóm tắt] + lịch sử chưa tóm tắt` (tối đa 24 tin, ≤ 13.000 ký tự, **bỏ tin cũ theo khối 12** để prefix ổn định, luôn giữ tin mới nhất). Ngân sách token đo bằng tokenizer: tiếng Việt 2.8–3.5 ký tự/token → luôn vừa ctx 8192.
 5. `llm.chat`: POST `/v1/chat/completions` (`stream`, `cache_prompt`, `max_tokens` 1024) → parse SSE → gửi từng `Delta` qua Channel → UI hiện chữ chảy.
 6. Bấm **Dừng** → `Notify` → drop stream (llama-server ngừng sinh). Câu trả lời dở dang vẫn được lưu.
 7. Lưu câu trả lời → gửi `Done`.
+8. Nền (`after_reply`): nếu > 24 tin chưa tóm tắt → nhờ model tóm tắt phần cũ (giữ 12 tin gần nhất) vào `conversations.summary`; bị hủy ngay khi người dùng nói/gửi. Sau đó **làm ấm** prompt lượt sau (`Llm::prefill`, 1 request/lúc, llama-server `-np 1`); cũng làm ấm khi model vừa Ready.
+
+**Ghi nhớ (Phase 4, [ADR-0012](adr/0012-tu-ghi-nho.md)):** sau mỗi lượt, `auto_remember` (nền) nhờ model trích điều lâu dài người dùng vừa nói → lưu `approved` ngay → sự kiện `memory-saved` → UI "Mori đã nhớ: … [Hoàn tác]". Lệnh "nhớ là …" (`memory.rs`) và ⭐ lưu ngay. Panel ⭐ Ghi nhớ: sửa/xóa (xóa hẳn: `secure_delete` + rebuild FTS + checkpoint WAL; xóa toàn bộ thêm `VACUUM`). Sao lưu = `VACUUM INTO E:\Mori Data\backups\mori-<thời gian>.db`; khôi phục chỉ nhận tên trong danh sách đó (kiểm `integrity_check`), tự sao lưu bản hiện tại trước. Việc nền (tự nhớ, tóm tắt) bị hủy khi người dùng nói/gửi; cache prompt của llama-server nằm trong RAM nên việc nền không phá cache hội thoại.
 
 **Giọng nói vào (Phase 2 — đang chạy):** giữ **F2** (hoặc bấm 🎙) → `start_listening`: cpal mở micro (thread riêng, PCM vào RAM, tối đa 120 s) **và** nạp whisper-server song song → thả phím → `stop_listening`: tắt micro (log `mic_stop_ms`), bỏ qua nếu < 0.3 s hoặc RMS < 0.003 (chặn Whisper bịa chữ khi im lặng), resample 16 kHz → WAV trong RAM → POST multipart `/inference` → **Tự gửi** bật (mặc định): gửi luôn như hội thoại; tắt: transcript vào ô nhập để sửa trước khi gửi. Giải mã `-bs 5` (như lúc đo WER). Audio bị drop ngay sau nhận dạng. Esc = hủy. Đo (giọng tổng hợp, file Phase 0): lần đầu 5.8 s (gồm nạp model), sau đó 0.93 s.
 

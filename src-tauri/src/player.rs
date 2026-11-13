@@ -5,7 +5,7 @@ use crate::audio::resample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleFormat, SizedSample};
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use tracing::{info, warn};
 
@@ -22,6 +22,8 @@ pub struct Player {
     shared: Arc<Shared>,
     /// Tần số thiết bị; `None` = chưa mở, `Some(0)` = mở lỗi (thử lại ở lượt sau).
     rate: Mutex<Option<u32>>,
+    /// Lượt đã log "phát câu đầu" (đo e2e "thả F2 → nghe tiếng" từ log).
+    logged_turn: AtomicU64,
 }
 
 impl Player {
@@ -29,6 +31,7 @@ impl Player {
         Self {
             shared: Arc::default(),
             rate: Mutex::new(None),
+            logged_turn: AtomicU64::new(0),
         }
     }
 
@@ -42,6 +45,9 @@ impl Player {
         let mut q = self.shared.queue.lock().unwrap();
         if turn == q.0 {
             q.1.extend(pcm);
+            if self.logged_turn.swap(turn, Ordering::Relaxed) != turn {
+                info!(turn, "phát câu đầu");
+            }
         }
     }
 

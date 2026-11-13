@@ -3,11 +3,17 @@
 
 /// Câu quá dài không có dấu kết thúc → cắt ở dấu phẩy/khoảng trắng cuối để TTS bắt đầu sớm.
 const MAX_SENTENCE: usize = 220;
+/// Câu đầu: người dùng đang chờ tiếng (đo: câu đầu 71 ký tự mất 1.8 s, 123 ký tự mất 2.6 s) → cắt ở dấu phẩy khi đủ dài,
+/// và giới hạn ngắn hơn.
+const FIRST_MIN: usize = 30;
+const FIRST_MAX: usize = 50;
 
 #[derive(Default)]
 pub struct Splitter {
     buf: String,
     in_code: bool,
+    /// Đã trả câu đầu.
+    started: bool,
 }
 
 impl Splitter {
@@ -18,6 +24,7 @@ impl Splitter {
         while let Some(end) = self.boundary() {
             let piece: String = self.buf.drain(..end).collect();
             self.take(&piece, &mut out);
+            self.started |= !out.is_empty();
         }
         out
     }
@@ -32,21 +39,31 @@ impl Splitter {
 
     /// Vị trí (byte) ngay sau ranh giới câu đầu tiên, nếu đã chắc chắn.
     fn boundary(&self) -> Option<usize> {
-        let mut it = self.buf.char_indices().peekable();
-        while let Some((i, c)) = it.next() {
+        let max = if self.started {
+            MAX_SENTENCE
+        } else {
+            FIRST_MAX
+        };
+        let mut it = self.buf.char_indices().enumerate().peekable();
+        while let Some((n, (i, c))) = it.next() {
             let end = i + c.len_utf8();
             match c {
                 '\n' => return Some(end),
+                ',' if !self.started && n >= FIRST_MIN => match it.peek() {
+                    Some((_, (_, n))) if n.is_whitespace() => return Some(end),
+                    Some(_) => {}
+                    None => return None,
+                },
                 '.' | '?' | '!' | '…' | ':' | ';' => match it.peek() {
-                    Some((_, n)) if n.is_whitespace() => return Some(end),
+                    Some((_, (_, n))) if n.is_whitespace() => return Some(end),
                     Some(_) => {}        // "3.5", "package.json"
                     None => return None, // chưa biết ký tự sau → đợi thêm
                 },
                 _ => {}
             }
         }
-        if let Some((limit, _)) = self.buf.char_indices().nth(MAX_SENTENCE) {
-            // Cắt ở dấu phẩy/khoảng trắng cuối trong MAX_SENTENCE ký tự đầu; không có thì cắt cứng.
+        if let Some((limit, _)) = self.buf.char_indices().nth(max) {
+            // Cắt ở dấu phẩy/khoảng trắng cuối trong `max` ký tự đầu; không có thì cắt cứng.
             let cut = self.buf[..limit]
                 .rfind([',', ' '])
                 .filter(|&p| p > 0)
@@ -142,6 +159,28 @@ mod tests {
         let out = all(&[&long]);
         assert!(out.len() >= 2 && out.iter().all(|s| s.chars().count() <= MAX_SENTENCE + 4));
         assert_eq!(out.join(" "), long.trim());
+    }
+
+    #[test]
+    fn first_sentence_cut_early_at_comma_then_normal() {
+        let out = all(&[
+            "Lịch sử máy tính bắt đầu từ rất lâu, khi con người dùng bàn tính, rồi đến máy cơ khí. Sau đó, điện tử ra đời.",
+        ]);
+        assert_eq!(
+            out,
+            [
+                "Lịch sử máy tính bắt đầu từ rất lâu,",
+                "khi con người dùng bàn tính, rồi đến máy cơ khí.",
+                "Sau đó, điện tử ra đời."
+            ]
+        );
+        assert_eq!(
+            all(&["Ừ, mình đây."]),
+            ["Ừ, mình đây."],
+            "phẩy sớm quá → không cắt"
+        );
+        let long = "chữ ".repeat(40);
+        assert!(all(&[&long])[0].chars().count() <= FIRST_MAX);
     }
 
     #[test]

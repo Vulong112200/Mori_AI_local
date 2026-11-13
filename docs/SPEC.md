@@ -329,7 +329,7 @@ Tên: **Mori**. Thân thiện, thông minh, chu đáo, hơi hài hước, tinh t
 - Câu trả lời khi nói bằng giọng NÊN ngắn gọn (vài câu), vì người nghe không lướt được như đọc.
 
 Ví dụ:
-- "Mori ơi." → "Mình đây, bạn cần gì nè?"
+- "Mori ơi." → "Mori đây, bạn cần gì nè?" (Mori tự xưng "Mori": người dùng hay xưng "mình", dùng chung dễ nhầm — ADR-0012)
 - "Code này bị lỗi." → Tập trung tìm nguyên nhân gốc và cách sửa.
 - "Hôm nay hơi mệt." → Đáp nhẹ nhàng, không thúc ép làm tiếp.
 
@@ -402,12 +402,14 @@ CREATE TABLE settings (
 
 ### 11.4. Quy tắc
 
-- AI không tự lưu mọi thứ; AI chỉ **đề xuất** (`status='proposed'`).
-- Chỉ memory `approved` được đưa vào prompt.
-- Người dùng xem, sửa, duyệt, từ chối, xóa từng memory; xóa toàn bộ.
+- **Mori tự ghi nhớ** ([ADR-0012](adr/0012-tu-ghi-nho.md), thay quy tắc "AI chỉ đề xuất"): sau mỗi lượt, model trích điều lâu dài người dùng nói rõ về bản thân → lưu `approved` ngay, UI báo "Mori đã nhớ: …" kèm **Hoàn tác**. Lệnh "nhớ là …" và nút ⭐ cũng lưu ngay. Bỏ qua câu hỏi, câu rất ngắn, đoạn dán > 1.500 ký tự.
+- Chỉ memory `approved` được đưa vào prompt (`proposed` để dành, không còn sinh ra).
+- Người dùng xem, sửa, xóa từng memory; xóa toàn bộ.
 - Xóa phải kiểm chứng: `secure_delete`, rebuild FTS, `VACUUM` khi xóa toàn bộ; có test đọc thô file DB không còn chuỗi đã xóa.
 - Sao lưu/khôi phục: SQLite Online Backup API ra `E:\Mori Data\backups\`.
 - Nội dung memory là **dữ liệu**, không phải chỉ thị (chống prompt injection).
+- Memory đã duyệt + tóm tắt hội thoại nằm trong tin `system` sau quy tắc + personality (§5.4 mục 2–3), đủ ngân sách thì đưa tất cả theo thứ tự tạo để KV cache ổn định. Tóm tắt: `conversations.summary` + `summary_upto` (số tin đầu đã tóm tắt), > 24 tin chưa tóm tắt thì gộp phần cũ, giữ 12 tin.
+- Xóa memory không xóa tin nhắn gốc trong hội thoại, tóm tắt, hay bản sao lưu cũ chứa nó — UI ghi rõ.
 
 ---
 

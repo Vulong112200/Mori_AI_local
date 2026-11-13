@@ -98,7 +98,7 @@ impl Stt {
         Ok(if is_hallucination(text) {
             String::new()
         } else {
-            text.to_string()
+            fix_name(text)
         })
     }
 
@@ -200,9 +200,62 @@ fn is_hallucination(text: &str) -> bool {
         .any(|p| t.contains(p))
 }
 
+/// Whisper hay chép tên "Mori" thành "Morrie", "Mô ri"… (người dùng gặp 2026-11-13) → đưa về "Mori".
+/// Chỉ thay cả từ (không đụng "morning", "memory").
+fn fix_name(text: &str) -> String {
+    const VARIANTS: &[&str] = &[
+        "morrie", "morie", "morri", "mory", "moori", "mô ri", "mo ri", "mơ ri", "mô-ri", "mo-ri",
+        "mori",
+    ];
+    if text
+        .chars()
+        .any(|c| c.to_lowercase().map(char::len_utf8).sum::<usize>() != c.len_utf8())
+    {
+        return text.to_string(); // vị trí byte phải khớp 1:1 giữa bản gốc và bản chữ thường
+    }
+    let lower = text.to_lowercase();
+    let word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+    let (mut out, mut i) = (String::with_capacity(text.len()), 0);
+    'next: while i < text.len() {
+        if !word(text[..i].chars().next_back()) {
+            for v in VARIANTS {
+                let end = i + v.len();
+                if lower.get(i..end) == Some(v)
+                    && text.is_char_boundary(end)
+                    && !word(text[end..].chars().next())
+                {
+                    out.push_str("Mori");
+                    i = end;
+                    continue 'next;
+                }
+            }
+        }
+        let c = text[i..].chars().next().unwrap_or_default();
+        out.push(c);
+        i += c.len_utf8().max(1);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mori_name_variants_fixed() {
+        assert_eq!(
+            fix_name("Morrie ơi, hãy nhớ là mình thích trà sữa."),
+            "Mori ơi, hãy nhớ là mình thích trà sữa."
+        );
+        assert_eq!(
+            fix_name("Mô ri, chào nha. MORIE à?"),
+            "Mori, chào nha. Mori à?"
+        );
+        assert_eq!(
+            fix_name("good morning, memory, Moriarty"),
+            "good morning, memory, Moriarty"
+        );
+    }
 
     #[test]
     fn known_hallucinations_dropped() {
@@ -235,6 +288,7 @@ mod tests {
             let base = stt.server.lock().await.as_ref().unwrap().base.clone();
             let root = base.rsplit_once('/').unwrap().0;
             let http = reqwest::Client::builder()
+                .no_proxy()
                 .timeout(Duration::from_secs(10))
                 .build()
                 .unwrap();

@@ -12,7 +12,6 @@ use crate::prompt::ChatMessage;
 use futures_util::StreamExt;
 use serde::Serialize;
 use std::{path::PathBuf, process::Stdio, sync::Mutex, time::Duration};
-use tauri::{AppHandle, Emitter};
 use tokio::{
     process::Command,
     sync::{watch, Notify},
@@ -42,6 +41,8 @@ pub struct Llm {
     status: watch::Sender<Status>,
     /// (cổng, API key) khi đang Ready.
     endpoint: Mutex<Option<(u16, String)>>,
+    /// Lần làm ấm mới hủy lần cũ (chỉ một request làm ấm tại một thời điểm, audit gate 3).
+    prefill_cancel: Notify,
     http: reqwest::Client,
     #[cfg(windows)]
     job: Option<job::Job>,
@@ -57,6 +58,7 @@ impl Llm {
                 model: display(model),
             }),
             endpoint: Mutex::new(None),
+            prefill_cancel: Notify::new(),
             // Không đi qua proxy hệ thống: mọi request chỉ tới loopback.
             http: reqwest::Client::builder()
                 .no_proxy()
@@ -88,24 +90,25 @@ impl Llm {
         warn!("llama-server chưa dừng sau 3 s");
     }
 
-    fn set(&self, app: &AppHandle, s: Status) {
+    fn set(&self, on_status: &impl Fn(&Status), s: Status) {
         info!(status = ?s, "llm");
         self.status.send_replace(s.clone());
-        let _ = app.emit("llm-status", s);
+        on_status(&s);
     }
 
-    pub async fn supervise(&self, app: AppHandle) {
+    /// Chạy/giám sát llama-server đến khi `shutdown`. `on_status` nhận mọi lần đổi trạng thái (UI, làm ấm).
+    pub async fn supervise(&self, on_status: impl Fn(&Status)) {
         let mut desired = self.desired.subscribe();
         let mut failures = 0u32;
         loop {
             let Some(model) = desired.borrow_and_update().clone() else {
-                self.set(&app, Status::Stopped);
+                self.set(&on_status, Status::Stopped);
                 return;
             };
             let name = display(&model);
             if failures == 0 {
                 self.set(
-                    &app,
+                    &on_status,
                     Status::Starting {
                         model: name.clone(),
                     },
@@ -117,7 +120,7 @@ impl Llm {
                 Ok(v) => v,
                 Err(e) => {
                     self.set(
-                        &app,
+                        &on_status,
                         Status::Error {
                             message: format!("không chạy được llama-server: {e}"),
                         },
@@ -141,7 +144,7 @@ impl Llm {
                     failures = 0;
                     *self.endpoint.lock().unwrap() = Some((port, key));
                     self.set(
-                        &app,
+                        &on_status,
                         Status::Ready {
                             model: name.clone(),
                         },
@@ -165,7 +168,7 @@ impl Llm {
             failures += 1;
             if failures > MAX_RESTARTS {
                 self.set(
-                    &app,
+                    &on_status,
                     Status::Error {
                         message: format!("llama-server lỗi {MAX_RESTARTS} lần liên tiếp"),
                     },
@@ -177,7 +180,7 @@ impl Llm {
                 continue;
             }
             self.set(
-                &app,
+                &on_status,
                 Status::Restarting {
                     model: name,
                     attempt: failures,
@@ -206,6 +209,9 @@ impl Llm {
             .arg(self.models_dir.join(model))
             .args(["--host", "127.0.0.1", "--port", &port.to_string()])
             .args(["-c", "8192", "-ngl", "99", "--jinja", "--reasoning", "off"])
+            // 1 slot: lượt bị ngắt chưa hủy xong thì request làm ấm sang slot trống → xử lý lại cả lịch sử
+            // và lượt sau vẫn chậm (đo: TTFT 3.3 s). 1 slot → xếp hàng, dùng đúng cache (0.3 s).
+            .args(["-np", "1"])
             .args(["--no-webui", "--no-slots", "--offline"])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -253,11 +259,51 @@ impl Llm {
             .is_ok_and(|r| r.status().is_success())
     }
 
+    /// Đưa trước prompt vào KV cache (sinh 1 token, bỏ kết quả) để lượt sau chỉ phải xử lý tin mới.
+    /// Lần gọi mới hủy lần đang chạy (drop request → llama-server hủy task).
+    pub async fn prefill(&self, messages: &[ChatMessage<'_>]) {
+        self.prefill_cancel.notify_waiters();
+        let cancelled = self.prefill_cancel.notified();
+        tokio::pin!(cancelled);
+        cancelled.as_mut().enable(); // đăng ký trước khi gửi → không lỡ lần notify kế tiếp
+        let Some((port, key)) = self.endpoint.lock().unwrap().clone() else {
+            return;
+        };
+        let body = serde_json::json!({"messages": messages, "cache_prompt": true, "max_tokens": 1});
+        let t = std::time::Instant::now();
+        let request = self
+            .http
+            .post(format!("http://127.0.0.1:{port}/v1/chat/completions"))
+            .bearer_auth(key)
+            .timeout(Duration::from_secs(15)) // đo: 0.4–4.6 s
+            .json(&body)
+            .send();
+        let ok = tokio::select! {
+            r = request => r.is_ok_and(|r| r.status().is_success()),
+            _ = cancelled => false,
+        };
+        info!(
+            prefill_ms = t.elapsed().as_millis() as u64,
+            ok, "làm ấm prompt"
+        );
+    }
+
     /// Stream câu trả lời. Trả `(toàn văn, bị_dừng)`. `stop` được notify khi người dùng bấm Dừng.
     pub async fn chat(
         &self,
         messages: &[ChatMessage<'_>],
         stop: &Notify,
+        on_delta: impl FnMut(&str),
+    ) -> Result<(String, bool), String> {
+        self.chat_with(messages, stop, None, on_delta).await
+    }
+
+    /// Như `chat`, đặt được `temperature` (việc nền cần chính xác, ổn định: 0).
+    pub async fn chat_with(
+        &self,
+        messages: &[ChatMessage<'_>],
+        stop: &Notify,
+        temperature: Option<f32>,
         mut on_delta: impl FnMut(&str),
     ) -> Result<(String, bool), String> {
         let (port, key) = self
@@ -266,9 +312,15 @@ impl Llm {
             .unwrap()
             .clone()
             .ok_or("Mori chưa sẵn sàng")?;
-        let body = serde_json::json!({
+        // Lấy mẫu theo khuyến nghị của Qwen3 cho chế độ không suy nghĩ (mặc định llama-server: 0.8/0.95/40
+        // → câu trả lời dao động, hay hiểu nhầm "mình").
+        let mut body = serde_json::json!({
             "messages": messages, "stream": true, "cache_prompt": true, "max_tokens": MAX_REPLY_TOKENS,
+            "temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0.0,
         });
+        if let Some(t) = temperature {
+            body["temperature"] = t.into();
+        }
         let request = self
             .http
             .post(format!("http://127.0.0.1:{port}/v1/chat/completions"))
