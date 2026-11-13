@@ -44,6 +44,7 @@ export default function App() {
   const [ttsStatus, setTtsStatus] = useState<"loading" | "ready" | "error" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMemories, setShowMemories] = useState(false);
+  const [checks, setChecks] = useState<api.Check[] | null>(null); // màn hình "sẵn sàng offline"
   const [proposed, setProposed] = useState(0); // số đề xuất ghi nhớ chờ duyệt
   // Ghi nhớ vừa lưu (để Hoàn tác).
   const [remembered, setRemembered] = useState<api.Memory[]>([]);
@@ -397,6 +398,13 @@ export default function App() {
             </span>
           )}
         </button>
+        <button
+          onClick={() => (checks ? setChecks(null) : api.readiness().then(setChecks, (e) => setError(String(e))))}
+          title="Kiểm tra Mori có đủ mọi thứ để chạy không cần Internet"
+          className="rounded-lg px-2 py-1.5 text-xs text-slate-600 hover:bg-pink-100"
+        >
+          🔌 Offline
+        </button>
         <label htmlFor="avatar-mode" className="sr-only">
           Hiển thị nhân vật
         </label>
@@ -485,6 +493,24 @@ export default function App() {
           </button>
         </p>
       ))}
+
+      {checks && (
+        <section aria-label="Sẵn sàng offline" className="mx-4 mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs">
+          <p className="mb-1 font-medium text-emerald-800">
+            {checks.every((c) => c.ok) ? "✓ Mori sẵn sàng chạy không cần Internet" : "Còn thiếu thành phần — Mori chưa chạy đủ offline"}
+          </p>
+          <ul className="space-y-0.5">
+            {checks.map((c) => (
+              <li key={c.name} className={c.ok ? "text-slate-600" : "text-rose-700"}>
+                {c.ok ? "✓" : "✗"} {c.name}: <span className="text-slate-500">{c.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-slate-500">
+            Mọi dịch vụ chỉ mở trên máy này (127.0.0.1), không gửi dữ liệu đi đâu. Ngoại lệ đang xử lý: WebView2 của Windows tự kết nối Microsoft lúc mở app (ADR-0010).
+          </p>
+        </section>
+      )}
 
       {error && (
         <p role="alert" className="mx-4 mb-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">

@@ -41,6 +41,12 @@ export interface Mic {
 }
 
 export const init = () => invoke<InitState>("init");
+export interface Check {
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+export const readiness = () => invoke<Check[]>("readiness");
 export const newConversation = () => invoke<string>("new_conversation");
 export const stopGeneration = () => invoke<void>("stop_generation");
 export const setFastMode = (enabled: boolean) => invoke<void>("set_fast_mode", { enabled });

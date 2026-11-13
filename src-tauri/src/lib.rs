@@ -164,6 +164,75 @@ async fn init(state: State<'_, AppState>) -> Result<InitState, String> {
     })
 }
 
+#[derive(Serialize)]
+struct Check {
+    name: &'static str,
+    ok: bool,
+    detail: String,
+}
+
+/// Màn hình "sẵn sàng offline" (Phase 6): mọi thứ Mori cần đều nằm trên máy, không cần Internet.
+/// Chỉ kiểm file/trạng thái cục bộ, không gọi mạng.
+#[tauri::command]
+fn readiness(state: State<'_, AppState>) -> Vec<Check> {
+    let data = data_dir();
+    let file = |name: &'static str, path: PathBuf| {
+        let ok = path.is_file();
+        Check {
+            name,
+            ok,
+            detail: if ok {
+                path.file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            } else {
+                format!("thiếu {}", path.display())
+            },
+        }
+    };
+    let llm = state.llm.status();
+    let models = data.join("models");
+    let tts = models.join("tts").join(TTS_MODEL_DIR);
+    vec![
+        Check {
+            name: "Não (LLM)",
+            ok: matches!(llm, Status::Ready { .. }),
+            detail: match &llm {
+                Status::Ready { model } => format!("{model} đang chạy trên máy"),
+                s => format!("{s:?}"),
+            },
+        },
+        file("Model LLM", models.join("llm").join(DEFAULT_MODEL)),
+        file("Model LLM nhanh", models.join("llm").join(FAST_MODEL)),
+        file(
+            "Nhận dạng giọng (STT)",
+            data.join("runtime")
+                .join("whisper.cpp")
+                .join(WHISPER_BUILD)
+                .join("whisper-server.exe"),
+        ),
+        file("Model STT", models.join("stt").join(STT_MODEL)),
+        file(
+            "Giọng nói (TTS)",
+            data.join("runtime")
+                .join("python")
+                .join("tts-venv")
+                .join("Scripts")
+                .join("python.exe"),
+        ),
+        Check {
+            name: "Model TTS",
+            ok: tts.is_dir(),
+            detail: format!("{} giọng", state.tts_voices().len()),
+        },
+        Check {
+            name: "Dữ liệu",
+            ok: state.db.setting("_").is_ok(),
+            detail: data.join("database").join("mori.db").display().to_string(),
+        },
+    ]
+}
+
 #[tauri::command]
 fn new_conversation(state: State<'_, AppState>) -> Result<String, String> {
     state.db.create_conversation().map_err(err)
@@ -968,6 +1037,7 @@ pub fn run() {
             backup_db,
             list_backups,
             restore_backup,
+            readiness,
             avatar::set_avatar_mode,
             avatar::set_avatar_click_through,
             avatar::avatar_drag,

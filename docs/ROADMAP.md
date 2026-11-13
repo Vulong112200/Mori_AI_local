@@ -202,13 +202,13 @@
 
 **Trạng thái:** Đang làm
 
-- [ ] Benchmark đầy đủ (SPEC §19.4–19.5)
-- [ ] 🔐 WebView2 Fixed Version + luật firewall chặn outbound ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo 0 kết nối
-- [ ] Kiểm tra offline + privacy (SPEC §19.6)
-- [ ] Khôi phục: crash worker, đổi thiết bị audio, sleep/resume
-- [ ] Màn hình "sẵn sàng offline"
-- [ ] Security audit (agent `security-auditor`)
-- [ ] Đánh giá chủ quan ≥ 4/5
+- [~] Benchmark đầy đủ (SPEC §19.4–19.5) — đã có: e2e P95 3.45–3.72 s, TTFT ~0.4–0.47 s, TTS first audio P95 181–244 ms, stop micro 35–85 ms, avatar 30 FPS (MODEL_EVALUATION §5). Còn: idle 30 phút / hội thoại 30 phút–2 giờ (RAM ổn định), chạy không GPU (CPU fallback)
+- [ ] 🔐 WebView2 Fixed Version + luật firewall chặn outbound ([ADR-0010](adr/0010-webview2-ket-noi-ra-ngoai.md)) → đo 0 kết nối — **cần người dùng duyệt tải (~200 MB) + quyền admin**
+- [~] Kiểm tra offline + privacy (SPEC §19.6) — 2026-11-13 khi app chạy: chỉ nghe `127.0.0.1` (llama-server), không kết nối TCP/UDP nào ra ngoài loopback từ mori/llama/whisper/python; chat chạy khi rút mạng (gate 1); xóa memory có kiểm chứng (gate 4). Còn: ngoại lệ WebView2 (dòng trên), không file audio tạm (kiểm lại cuối)
+- [~] Khôi phục: crash worker — **TTS**: giết worker → tự dựng lại sau 1 s, sẵn sàng 5.4 s (đo 2026-11-13); **llama-server**: đã đo Phase 1 (Ready lại 6.3 s); **whisper-server**: spawn lại ở lượt sau. **Đổi thiết bị loa**: stream lỗi (rút tai nghe) hoặc thiết bị mặc định đổi → mở lại ở lượt kế tiếp (`player.rs`) — chờ người dùng thử. **Sleep/resume**: chờ người dùng thử
+- [x] Màn hình "sẵn sàng offline": nút 🔌 Offline trên khung chat — kiểm LLM đang chạy, đủ file model/runtime LLM/STT/TTS, DB; không gọi mạng
+- [ ] Security audit (agent `security-auditor`) — cuối Phase 6
+- [ ] **Người dùng** đánh giá chủ quan ≥ 4/5 (SPEC §19.7: hiểu tiếng Việt, giọng, nhịp nói, tính cách, memory, trải nghiệm, biểu cảm avatar)
 
 ### Gate Phase 6
 - [ ] Mọi tiêu chí chấp nhận quan trọng đạt
