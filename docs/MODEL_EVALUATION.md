@@ -158,6 +158,7 @@ Lưu ý: lúc đo có **hai bộ model chạy cùng lúc** (app: 8B + Whisper + 
 |---|---|
 | Idle 30 phút (app + avatar, đo mỗi phút) | RAM tiến trình Mori 7.93–7.97 GB suốt 27 phút (llama-server 6301, TTS 602, WebView 982–1020, mori.exe 44 MB); phút 28 Windows thu working set → 6.90 GB. Không tăng dần ✅ |
 | Không GPU (CPU fallback) | Bản llama.cpp Vulkan với GPU bị ẩn (`GGML_VK_VISIBLE_DEVICES`) tự chạy CPU: Qwen3-4B-Instruct pp 119 tok/s, tg 17.8 tok/s ✅ — máy không GPU nên bật Chế độ nhanh |
+| Hội thoại liên tục 30 phút (`MORI_SOAK_MINUTES=30 cargo test e2e_gate`, app tắt) | 246 lượt, không treo; RAM llama-server + whisper-server + TTS 9.36–9.40 GB suốt 30 phút, không tăng dần ✅; e2e TB 2.88 s / P95 3.60 s / max 3.90 s; TTFT TB 382 / P95 435 ms |
 | Worker TTS chết | Tự dựng lại sau 1 s, sẵn sàng 5.4 s ✅ |
 | Kết nối mạng (app chạy, WebView2 Fixed + firewall) | Chỉ nghe 127.0.0.1; 0 kết nối TCP/UDP ra ngoài loopback ✅ |
 

@@ -24,7 +24,7 @@
 
 ## 3. Việc còn lại để chốt gate 6
 
-1. **Hội thoại liên tục 30 phút** (SPEC §19.5): lần 1 dừng ở 71 lượt/~10 phút (RAM llama+whisper+TTS đứng yên 9.40 GB, TTFT TB 429 ms, e2e TB 2.96 s, max 3.81 s). Lần 2 (đủ 30 phút) đang chạy lúc viết file này — nếu chưa có số trong ROADMAP thì chạy lại khi **app tắt**:
+1. ~~Hội thoại liên tục 30 phút~~ — **đạt** (2026-11-13): 246 lượt, không treo, RAM llama+whisper+TTS 9.36–9.40 GB suốt 30 phút, e2e P95 3.60 s, TTFT TB 382 ms. Cách chạy lại (khi **app tắt**):
    ```powershell
    cd src-tauri; $env:MORI_SOAK_MINUTES=30; cargo test e2e_gate -- --ignored --nocapture
    ```
