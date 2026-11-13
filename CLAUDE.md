@@ -8,6 +8,7 @@ Viết tài liệu và trao đổi với người dùng bằng **tiếng Việt*
 
 | File | Khi nào |
 |---|---|
+| [docs/HANDOFF.md](docs/HANDOFF.md) | Luôn — bàn giao mới nhất: tiến độ, yêu cầu người dùng, việc tiếp theo |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Luôn — mục **Bàn giao** ở đầu, phase hiện tại, task kế tiếp |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Hệ thống **như đang xây**: thành phần AI, luồng, mã nguồn, lệnh IPC, bảo mật, cách chạy |
 | [docs/SPEC.md](docs/SPEC.md) | Trước khi thiết kế/viết code — nguồn sự thật |

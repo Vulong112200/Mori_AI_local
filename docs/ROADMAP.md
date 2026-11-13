@@ -8,6 +8,7 @@
 
 ## Bàn giao (đọc trước khi làm tiếp)
 
+- **File bàn giao cho session mới: [HANDOFF.md](HANDOFF.md)** — tiến độ, yêu cầu nguyên văn của người dùng, quyết định Phase 7, code nháp, lưu ý kỹ thuật.
 - **Đã xong:** Phase 0 (đo & chọn model), Phase 1 (chat văn bản), Phase 2 (giọng nói vào), Phase 3 (giọng nói ra, e2e P95 3.45–3.72 s), Phase 4 (Mori tự ghi nhớ — ADR-0012), Phase 5 (avatar Live2D Koharu: cửa sổ trong suốt, nhép miệng, trạng thái, 3 chế độ; 30 FPS, TTFT +0.9 %).
 - **Đang làm:** Phase 6 (ổn định MVP) — gần xong, **dừng giữa chừng theo yêu cầu người dùng (2026-11-13 chiều)**. Đã xong: WebView2 Fixed + 145 luật firewall (0 kết nối ra ngoài), ACL `E:\Mori Data` + `D:\Mori_AI_Local`, SHA-256 model/chương trình (`config/manifest.sha256`), idle 30 phút, CPU fallback, worker TTS tự hồi phục, 🔌 Offline, audit cuối, chấm chủ quan **4/5**. **Còn để chốt gate 6:** (1) hội thoại 30 phút — đã chạy 71 lượt/~10 phút thì dừng (RAM ổn định 9.40 GB, TTFT TB 429 ms, e2e TB 2.96 s, max 3.81 s): chạy lại đủ 30 phút `MORI_SOAK_MINUTES=30 cargo test e2e_gate -- --ignored --nocapture` khi tắt app; (2) người dùng thử rút/cắm tai nghe + sleep/resume; (3) `/gate 6`.
 - **Tiếp theo — Phase 7 (sống động & cá nhân hoá, người dùng yêu cầu 2026-11-13):** xem mục Phase 7 cuối file. **Code nháp đã viết nhưng CHƯA nối vào `lib.rs`, CHƯA build** (không có `mod` nên không ảnh hưởng build hiện tại): `src-tauri/src/hotkey.rs`, `emotion.rs`, `proactive.rs`.
