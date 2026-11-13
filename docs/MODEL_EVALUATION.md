@@ -162,6 +162,31 @@ Lưu ý: lúc đo có **hai bộ model chạy cùng lúc** (app: 8B + Whisper + 
 | Worker TTS chết | Tự dựng lại sau 1 s, sẵn sàng 5.4 s ✅ |
 | Kết nối mạng (app chạy, WebView2 Fixed + firewall) | Chỉ nghe 127.0.0.1; 0 kết nối TCP/UDP ra ngoài loopback ✅ |
 
+### 5.4. Tối ưu RAM / tốc độ (Phase 7, 2026-11-13)
+
+Người dùng yêu cầu đỡ tốn RAM, nhanh và chính xác hơn. App tắt, `cargo test e2e_gate -- --ignored` (20 câu giọng thật, Qwen3-8B, large-v3, ZeroTTS), RAM llama-server lấy mẫu mỗi 3 s. Log `-lv 4`: mặc định `flash_attn = auto` **đã bật** FA trên Arc 140T; KV f16 1152 MiB; `--cache-ram` mặc định 8192 MiB.
+
+| llama-server | WS / Private max | TTFT TB / P95 | e2e TB / P95 |
+|---|---|---|---|
+| Trước (FA auto, KV f16) | 6319 / 6382 MB | 396 / 441 ms | 2.90 / 3.14 s |
+| `-fa on -ctk q8_0 -ctv q8_0` | 5793 / 5845 MB | 393 / 440 ms | 3.03 / 3.69 s |
+| + `--cache-ram 1024 -lm none` | 5783 / 5845 MB | 373 / 387 ms | 2.88 / 3.23 s |
+| `-fa off`, KV f16 | 6832 / 6887 MB | 324 / 351 ms | 2.70 / 3.08 s |
+
+`llama-bench` (độ sâu 3000): FA + q8_0 pp64 139 / pp512 184 / tg 12.4; FA tắt + f16 pp64 198 / pp512 356 / tg 13.2 tok/s. Độ sâu 4096: FA + f16 (cấu hình cũ) pp512 78, FA + q8_0 118 tok/s. e2e dao động ±0.3 s giữa các lần do độ dài câu đầu (nhiệt độ 0.7).
+
+→ [ADR-0014](adr/0014-toi-uu-tai-nguyen.md): **`-fa on -ctk q8_0 -ctv q8_0 --cache-ram 1024`** (−526 MB, TTFT không đổi). `llm_gate` đạt với cờ mới (AI-06, AI-08, tự nhớ, hỏi giờ máy). Các tiến trình khác lúc đo: whisper-server 2296 / 2699 MB, TTS 769 / 1310 MB.
+
+**STT — beam nhỏ hơn** (whisper-cli large-v3 q5_0 Vulkan, `-t 4`, 100 câu giọng thật, `bench_stt.ps1`):
+
+| Beam | WER | WER số → chữ | Độ trễ TB / P95 |
+|---|---|---|---|
+| **`-bs 5 -bo 5` (đang dùng)** | **0.093** | 0.077 | 1.66 / 2.21 s |
+| `-bs 3 -bo 3` | 0.095 | 0.078 | 1.47 / 2.10 s |
+| `-bs 2 -bo 2` | 0.102 | 0.082 | 1.33 / 1.56 s |
+
+Người dùng chọn "WER không được tăng" → **giữ `-bs 5`** (beam 2 nhanh hơn 20 % nhưng WER +0.9 điểm, nhóm thuật ngữ 16.9 → 19.0 %).
+
 ## 6. Kết luận (sơ bộ, 2026-11-12)
 
 - **LLM:** [ADR-0008](adr/0008-llm-8b-mac-dinh.md): **Qwen3-8B mặc định**, Qwen3-4B-Instruct-2507 làm chế độ nhanh (thay ADR-0004). **Qwen3-8B** chất lượng tốt hơn rõ (4* so với 3.5*), vẫn đạt TTFT (0.4 s ấm) nhưng sinh chậm hơn một nửa (11.8 tok/s) và tốn thêm ~2 GB RAM → người dùng chọn 8B mặc định.

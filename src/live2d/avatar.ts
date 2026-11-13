@@ -37,8 +37,9 @@ const EMOTION_MOTION: Record<Emotion, string[]> = {
   shy: ["01"],
   worried: ["02", "03"],
 };
-/// Hoạt cảnh dùng bộ motion riêng thay cho Idle ([] = đứng yên, vd. ngủ).
-const ACTIVITY_MOTION: Partial<Record<Activity, string[]>> = { sleep: [], play: ["07", "08", "09"] };
+/// Hoạt cảnh dùng bộ motion riêng thay cho Idle. Ngủ: chỉ Idle (tay buông) — dừng hẳn motion thì tham số giữ nguyên
+/// tư thế cuối (vd. đang giơ tay), ảnh chụp kiểm tra cho thấy vậy.
+const ACTIVITY_MOTION: Partial<Record<Activity, string[]>> = { sleep: ["idle", "idle_02"], play: ["07", "08", "09"] };
 
 // Preset biểu cảm: giá trị chuẩn hóa −1…1 (dương → phần max của tham số, âm → phần min), áp sau motion theo trọng số.
 type Param = "smileL" | "smileR" | "mouthForm" | "cheek" | "sparkle" | "tearL" | "tearR" | "browLY" | "browRY" | "browLForm" | "browRForm" | "eyeSize";
@@ -217,7 +218,8 @@ export class Avatar extends CubismUserModel {
     if (this.activity !== this.lastActivity) {
       this.lastActivity = this.activity;
       this.actSince = this.t;
-      if (this.activity === "sleep") this._motionManager.stopAllMotions();
+      const pool = ACTIVITY_MOTION[this.activity];
+      if (pool && !busy) this.play(pool, PRIORITY_ACT); // vào cảnh ngay, không chờ động tác cũ hết
       if (this.activity === "wake") this.blinkAt = this.t + 99; // tự điều khiển mắt trong cảnh thức dậy
     }
     this.actW = approach(this.actW, busy ? 0 : 1, 2, dt);
@@ -226,7 +228,7 @@ export class Avatar extends CubismUserModel {
 
     model.loadParameters();
     if (this._motionManager.isFinished()) {
-      this.play(ACTIVITY_MOTION[act] ?? IDLE, PRIORITY_IDLE);
+      this.play(ACTIVITY_MOTION[act] ?? IDLE, PRIORITY_IDLE); // động tác của hoạt cảnh nối tiếp nhau
     } else {
       this._motionManager.updateMotion(model, dt);
     }
